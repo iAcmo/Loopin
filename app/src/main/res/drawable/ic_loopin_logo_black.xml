@@ -1,0 +1,27 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="512dp"
+    android:height="512dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+
+    <group
+        android:pivotX="256"
+        android:pivotY="256"
+        android:rotation="16">
+        <!-- Left Loop -->
+        <path
+            android:pathData="M 140,256 a 64,142 0 1,0 128,0 a 64,142 0 1,0 -128,0"
+            android:strokeColor="#000000"
+            android:strokeWidth="44"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+
+        <!-- Right Intersecting Loop -->
+        <path
+            android:pathData="M 244,256 a 64,142 0 1,0 128,0 a 64,142 0 1,0 -128,0"
+            android:strokeColor="#000000"
+            android:strokeWidth="44"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+    </group>
+</vector>

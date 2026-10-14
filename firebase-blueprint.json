@@ -1,0 +1,164 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with squad membership",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "username": { "type": "string" },
+        "displayName": { "type": "string" },
+        "bio": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "squadId": { "type": "string" },
+        "onboardingComplete": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "username", "squadId", "createdAt"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "Feed post with photo and caption",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "username": { "type": "string" },
+        "userAvatar": { "type": "string" },
+        "caption": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "squadId": { "type": "string" },
+        "likesCount": { "type": "number" },
+        "commentsCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "caption", "squadId", "createdAt"]
+    },
+    "PostComment": {
+      "title": "PostComment",
+      "description": "Comment on a feed post",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "username": { "type": "string" },
+        "userAvatar": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "username", "text", "createdAt"]
+    },
+    "Story": {
+      "title": "Story",
+      "description": "User story with ephemeral visual",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "username": { "type": "string" },
+        "userAvatar": { "type": "string" },
+        "mediaUrl": { "type": "string" },
+        "caption": { "type": "string" },
+        "squadId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "username", "mediaUrl", "squadId", "createdAt"]
+    },
+    "Room": {
+      "title": "Room",
+      "description": "Direct message thread or squad communication room",
+      "type": "object",
+      "properties": {
+        "roomId": { "type": "string" },
+        "squadId": { "type": "string" },
+        "name": { "type": "string" },
+        "isSquadRoom": { "type": "boolean" },
+        "memberIds": { "type": "array" },
+        "lastMessage": { "type": "string" },
+        "lastMessageSender": { "type": "string" },
+        "lastMessageTime": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["roomId", "squadId", "isSquadRoom", "createdAt"]
+    },
+    "RoomMessage": {
+      "title": "RoomMessage",
+      "description": "Message inside a direct message room or squad room",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderAvatar": { "type": "string" },
+        "text": { "type": "string" },
+        "type": { "type": "string" },
+        "mediaUrl": { "type": "string" },
+        "reactions": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderId", "senderName", "text", "type", "createdAt"]
+    },
+    "MusicNote": {
+      "title": "MusicNote",
+      "description": "Instagram music note with song and mood message",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "username": { "type": "string" },
+        "userAvatar": { "type": "string" },
+        "squadId": { "type": "string" },
+        "songTitle": { "type": "string" },
+        "artist": { "type": "string" },
+        "noteText": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "username", "squadId", "songTitle", "artist", "noteText", "createdAt"]
+    },
+    "Instant": {
+      "title": "Instant",
+      "description": "Quick photo instant communication drop",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "username": { "type": "string" },
+        "userAvatar": { "type": "string" },
+        "squadId": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "caption": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "username", "squadId", "imageUrl", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles with username, avatar and squadId"
+    },
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Feed posts by users"
+    },
+    "/posts/{postId}/comments/{commentId}": {
+      "schema": "PostComment",
+      "description": "Comments left on feed posts"
+    },
+    "/stories/{storyId}": {
+      "schema": "Story",
+      "description": "24-hour visual stories"
+    },
+    "/rooms/{roomId}": {
+      "schema": "Room",
+      "description": "Direct message and squad chat rooms"
+    },
+    "/rooms/{roomId}/messages/{messageId}": {
+      "schema": "RoomMessage",
+      "description": "Messages sent in direct message or squad chat rooms"
+    },
+    "/notes/{noteId}": {
+      "schema": "MusicNote",
+      "description": "User music notes status"
+    },
+    "/instants/{instantId}": {
+      "schema": "Instant",
+      "description": "Ephemeral instant photo drops"
+    }
+  }
+}

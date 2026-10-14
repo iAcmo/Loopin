@@ -1,0 +1,245 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidUser(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.username is string && data.username.size() >= 2 && data.username.size() <= 30 &&
+             (!('squadId' in data) || data.squadId == null || (data.squadId is string && data.squadId.size() <= 32)) &&
+             (!('displayName' in data) || data.displayName == null || (data.displayName is string && data.displayName.size() <= 60)) &&
+             (!('bio' in data) || data.bio == null || (data.bio is string && data.bio.size() <= 250)) &&
+             (!('avatarUrl' in data) || data.avatarUrl == null || (data.avatarUrl is string && data.avatarUrl.size() <= 1000)) &&
+             (!('isOnline' in data) || data.isOnline is bool) &&
+             (!('isPublicDirectory' in data) || data.isPublicDirectory is bool) &&
+             (!('isPrivate' in data) || data.isPrivate is bool) &&
+             (!('followers' in data) || (data.followers is list && data.followers.size() <= 10000)) &&
+             (!('following' in data) || (data.following is list && data.following.size() <= 10000)) &&
+             (!('blockedUsers' in data) || (data.blockedUsers is list && data.blockedUsers.size() <= 1000)) &&
+             (!('onlineStatusText' in data) || data.onlineStatusText == null || (data.onlineStatusText is string && data.onlineStatusText.size() <= 50)) &&
+             (!('onboardingComplete' in data) || data.onboardingComplete is bool) &&
+             (!('updatedAt' in data) || data.updatedAt == null || data.updatedAt is timestamp);
+    }
+
+    function isValidPost(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.caption is string && data.caption.size() <= 1000 &&
+             (!('squadId' in data) || data.squadId == null || (data.squadId is string && data.squadId.size() <= 32)) &&
+             (!('communityId' in data) || data.communityId == null || (data.communityId is string && data.communityId.size() <= 64)) &&
+             (!('communityName' in data) || data.communityName == null || (data.communityName is string && data.communityName.size() <= 64)) &&
+             (!('username' in data) || data.username == null || (data.username is string && data.username.size() <= 50)) &&
+             (!('userAvatar' in data) || data.userAvatar == null || (data.userAvatar is string && data.userAvatar.size() <= 500)) &&
+             (!('imageUrl' in data) || data.imageUrl == null || (data.imageUrl is string && data.imageUrl.size() <= 500)) &&
+             (!('likesCount' in data) || data.likesCount is int) &&
+             (!('commentsCount' in data) || data.commentsCount is int);
+    }
+
+    function isValidComment(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.username is string && data.username.size() <= 50 &&
+             data.text is string && data.text.size() >= 1 && data.text.size() <= 500 &&
+             (!('userAvatar' in data) || data.userAvatar == null || (data.userAvatar is string && data.userAvatar.size() <= 500));
+    }
+
+    function isValidStory(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.mediaUrl is string && data.mediaUrl.size() <= 500 &&
+             (!('squadId' in data) || data.squadId == null || (data.squadId is string && data.squadId.size() <= 32)) &&
+             (!('caption' in data) || data.caption == null || (data.caption is string && data.caption.size() <= 200)) &&
+             (!('username' in data) || data.username == null || (data.username is string && data.username.size() <= 50)) &&
+             (!('userAvatar' in data) || data.userAvatar == null || (data.userAvatar is string && data.userAvatar.size() <= 500));
+    }
+
+    function isValidRoom(data) {
+      return data.roomId is string && data.roomId.size() <= 128 &&
+             (!('squadId' in data) || data.squadId == null || (data.squadId is string && data.squadId.size() <= 32)) &&
+             (!('isSquadRoom' in data) || data.isSquadRoom is bool) &&
+             (!('isGroup' in data) || data.isGroup is bool) &&
+             (!('groupAdminId' in data) || data.groupAdminId == null || (data.groupAdminId is string && data.groupAdminId.size() <= 128)) &&
+             (!('groupAvatarUrl' in data) || data.groupAvatarUrl == null || (data.groupAvatarUrl is string && data.groupAvatarUrl.size() <= 1000)) &&
+             (!('memberUsernames' in data) || (data.memberUsernames is list && data.memberUsernames.size() <= 500)) &&
+             (!('name' in data) || data.name == null || (data.name is string && data.name.size() <= 100)) &&
+             (!('memberIds' in data) || (data.memberIds is list && data.memberIds.size() <= 500)) &&
+             (!('lastMessage' in data) || data.lastMessage == null || (data.lastMessage is string && data.lastMessage.size() <= 500)) &&
+             (!('lastMessageSender' in data) || data.lastMessageSender == null || (data.lastMessageSender is string && data.lastMessageSender.size() <= 60)) &&
+             (!('lastMessageTime' in data) || data.lastMessageTime == null || data.lastMessageTime is timestamp);
+    }
+
+    function isValidMessage(data) {
+      return data.senderId is string && data.senderId.size() <= 128 &&
+             data.senderName is string && data.senderName.size() <= 60 &&
+             data.text is string && data.text.size() <= 1000 &&
+             data.type is string && data.type.size() <= 30 &&
+             (!('senderAvatar' in data) || data.senderAvatar == null || (data.senderAvatar is string && data.senderAvatar.size() <= 1000)) &&
+             (!('mediaUrl' in data) || data.mediaUrl == null || (data.mediaUrl is string && data.mediaUrl.size() <= 2000)) &&
+             (!('effect' in data) || data.effect == null || (data.effect is string && data.effect.size() <= 50)) &&
+             (!('songTitle' in data) || data.songTitle == null || (data.songTitle is string && data.songTitle.size() <= 100)) &&
+             (!('songArtist' in data) || data.songArtist == null || (data.songArtist is string && data.songArtist.size() <= 100)) &&
+             (!('songCoverUrl' in data) || data.songCoverUrl == null || (data.songCoverUrl is string && data.songCoverUrl.size() <= 1000)) &&
+             (!('spotifyTrackUri' in data) || data.spotifyTrackUri == null || (data.spotifyTrackUri is string && data.spotifyTrackUri.size() <= 200)) &&
+             (!('audioDurationSec' in data) || data.audioDurationSec is int) &&
+             (!('replyToMessageId' in data) || data.replyToMessageId == null || (data.replyToMessageId is string && data.replyToMessageId.size() <= 128)) &&
+             (!('replyToText' in data) || data.replyToText == null || (data.replyToText is string && data.replyToText.size() <= 500)) &&
+             (!('replyToSenderName' in data) || data.replyToSenderName == null || (data.replyToSenderName is string && data.replyToSenderName.size() <= 60)) &&
+             (!('isUnsent' in data) || data.isUnsent is bool) &&
+             (!('isForwarded' in data) || data.isForwarded is bool) &&
+             (!('status' in data) || (data.status is string && data.status.size() <= 30)) &&
+             (!('seenAt' in data) || data.seenAt == null || data.seenAt is timestamp) &&
+             (!('seenByUserIds' in data) || (data.seenByUserIds is list && data.seenByUserIds.size() <= 500)) &&
+             (!('deletedForUserIds' in data) || (data.deletedForUserIds is list && data.deletedForUserIds.size() <= 500)) &&
+             (!('reactions' in data) || (data.reactions is list && data.reactions.size() <= 50));
+    }
+
+    function isValidNote(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.squadId is string && data.squadId.size() <= 32 &&
+             data.songTitle is string && data.songTitle.size() <= 100 &&
+             data.artist is string && data.artist.size() <= 100 &&
+             data.noteText is string && data.noteText.size() <= 150 &&
+             (!('username' in data) || data.username == null || (data.username is string && data.username.size() <= 50)) &&
+             (!('userAvatar' in data) || data.userAvatar == null || (data.userAvatar is string && data.userAvatar.size() <= 500));
+    }
+
+    function isValidInstant(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.imageUrl is string && data.imageUrl.size() <= 500 &&
+             data.squadId is string && data.squadId.size() <= 32 &&
+             (!('caption' in data) || data.caption == null || (data.caption is string && data.caption.size() <= 200)) &&
+             (!('username' in data) || data.username == null || (data.username is string && data.username.size() <= 50)) &&
+             (!('userAvatar' in data) || data.userAvatar == null || (data.userAvatar is string && data.userAvatar.size() <= 500));
+    }
+
+    // Collection: Users
+    match /users/{userId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() &&
+                       request.auth.uid == userId &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time &&
+                       isValidUser(incoming());
+      allow update: if isSignedIn() && (
+                       (request.auth.uid == userId && incoming().userId == request.auth.uid && isValidUser(incoming())) ||
+                       (incoming().diff(existing()).affectedKeys().hasOnly(['followers']) && incoming().followers is list)
+                    );
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Collection: Communities
+    match /communities/{communityId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    // Collection: Posts
+    match /posts/{postId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time &&
+                       isValidPost(incoming());
+      allow update: if isSignedIn() && (
+        (existing().userId == request.auth.uid && incoming().userId == existing().userId && isValidPost(incoming())) ||
+        (incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) && incoming().likesCount is int) ||
+        (incoming().diff(existing()).affectedKeys().hasOnly(['commentsCount']) && incoming().commentsCount is int)
+      );
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+
+      match /comments/{commentId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         isValidComment(incoming());
+        allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+      }
+    }
+
+    // Collection: Stories
+    match /stories/{storyId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time &&
+                       isValidStory(incoming());
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    // Collection: Rooms & Messages
+    match /rooms/{roomId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+                       isValidRoom(incoming()) &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time;
+      allow update: if isSignedIn() && isValidRoom(incoming());
+      allow delete: if isSignedIn() && request.auth.uid in resource.data.memberIds;
+
+      match /messages/{messageId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() &&
+                         incoming().senderId == request.auth.uid &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         isValidMessage(incoming());
+        allow update: if isSignedIn() && (
+                         (incoming().diff(existing()).affectedKeys().hasOnly(['reactions']) && incoming().reactions is list) ||
+                         (incoming().diff(existing()).affectedKeys().hasOnly(['isUnsent']) && incoming().isUnsent is bool) ||
+                         (incoming().diff(existing()).affectedKeys().hasOnly(['deletedForUserIds']) && incoming().deletedForUserIds is list) ||
+                         (incoming().diff(existing()).affectedKeys().hasAny(['status', 'seenAt', 'seenByUserIds']))
+                      );
+        allow delete: if isSignedIn() && existing().senderId == request.auth.uid;
+      }
+    }
+
+    // Collection: Music Notes
+    match /notes/{noteId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time &&
+                       isValidNote(incoming());
+      allow update: if isSignedIn() &&
+                       incoming().userId == existing().userId &&
+                       isValidNote(incoming());
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    // Collection: Instants
+    match /instants/{instantId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time &&
+                       isValidInstant(incoming());
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+  }
+}
