@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -38,13 +39,11 @@ import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -86,8 +85,10 @@ import com.example.data.model.Story
 import com.example.data.model.UserProfile
 import com.example.ui.components.GlassButton
 import com.example.ui.components.GlassCard
+import com.example.ui.components.GlassModalSheet
 import com.example.ui.components.GlassTextField
 import com.example.ui.components.LiquidGlassBackground
+import com.example.ui.components.LoopinAvatar
 import com.example.ui.components.SpotifyGreen
 import com.example.ui.components.SpotifyTrackPickerDialog
 import com.example.util.SpotifyTrack
@@ -96,6 +97,7 @@ import java.io.FileOutputStream
 import com.example.ui.theme.FrostedStoryRingGradient
 import com.example.ui.theme.GlassBorder
 import com.example.ui.theme.GlassBorderStrong
+import com.example.ui.theme.LocalIsDarkTheme
 import com.example.ui.theme.GlassFill
 import com.example.ui.theme.GlassFillElevated
 import com.example.ui.theme.GlassStrokeBrush
@@ -116,7 +118,6 @@ fun FeedScreen(
     stories: List<Story>,
     comments: List<PostComment>,
     selectedPostForComments: Post?,
-    publicUsers: List<UserProfile> = emptyList(),
     onLikePost: (Post) -> Unit,
     onOpenComments: (Post) -> Unit,
     onCloseComments: () -> Unit,
@@ -129,7 +130,6 @@ fun FeedScreen(
 ) {
     var showCreatePostDialog by remember { mutableStateOf(false) }
     var showCreateStoryDialog by remember { mutableStateOf(false) }
-    var showSearchUsersDialog by remember { mutableStateOf(false) }
 
     LiquidGlassBackground {
         Column(
@@ -138,11 +138,11 @@ fun FeedScreen(
                 .widthIn(max = 640.dp)
                 .align(Alignment.TopCenter)
         ) {
-            // Glassmorphic Top App Bar with Search by Username and Loopin Logo
+            // Glassmorphic Top App Bar with official Loopin Logo
             LoopinTopAppBar(
+                squadId = userProfile?.squadId ?: "SQUAD",
                 onNavigateToDMs = onNavigateToDMs,
-                onAddStory = { showCreateStoryDialog = true },
-                onOpenSearch = { showSearchUsersDialog = true }
+                onAddStory = { showCreateStoryDialog = true }
             )
 
             LazyColumn(
@@ -175,7 +175,7 @@ fun FeedScreen(
                             onLike = { onLikePost(post) },
                             onComment = { onOpenComments(post) },
                             onShareToDM = onNavigateToDMs,
-                            onOpenAuthorProfile = { onOpenUserProfile(post.username) }
+                            onOpenUserProfile = onOpenUserProfile
                         )
                     }
                 }
@@ -197,18 +197,6 @@ fun FeedScreen(
                 imageVector = Icons.Default.Add,
                 contentDescription = "Create Post",
                 modifier = Modifier.size(26.dp)
-            )
-        }
-
-        // Search Users Dialog (Search by username feature)
-        if (showSearchUsersDialog) {
-            SearchUsersGlassModal(
-                publicUsers = publicUsers,
-                onSelectUser = { user ->
-                    showSearchUsersDialog = false
-                    onOpenUserProfile(user.username)
-                },
-                onDismiss = { showSearchUsersDialog = false }
             )
         }
 
@@ -249,17 +237,22 @@ fun FeedScreen(
 
 @Composable
 private fun LoopinTopAppBar(
+    squadId: String,
     onNavigateToDMs: () -> Unit,
-    onAddStory: () -> Unit,
-    onOpenSearch: () -> Unit
+    onAddStory: () -> Unit
 ) {
+    val isDark = LocalIsDarkTheme.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .height(60.dp)
-            .background(Color(0x16000000))
-            .border(width = 0.5.dp, color = Color(0x14FFFFFF), shape = RoundedCornerShape(0.dp))
+            .height(58.dp)
+            .background(if (isDark) Color(0x3308090E) else Color(0xEEFFFFFF))
+            .border(
+                width = 0.5.dp,
+                color = if (isDark) Color(0x18FFFFFF) else Color(0x12000000),
+                shape = RoundedCornerShape(0.dp)
+            )
             .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
@@ -268,7 +261,7 @@ private fun LoopinTopAppBar(
             Icon(
                 painter = painterResource(id = R.drawable.ic_loopin_logo),
                 contentDescription = "Loopin Logo",
-                tint = Color.White,
+                tint = if (isDark) Color.White else LoopinIris,
                 modifier = Modifier.size(34.dp)
             )
             Spacer(modifier = Modifier.width(10.dp))
@@ -282,18 +275,6 @@ private fun LoopinTopAppBar(
         }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(
-                onClick = onOpenSearch,
-                modifier = Modifier.testTag("feed_search_users_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Search Users",
-                    tint = TextPrimary,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-
             IconButton(
                 onClick = onAddStory,
                 modifier = Modifier.testTag("add_story_top_button")
@@ -328,7 +309,7 @@ private fun LoopinTopAppBar(
             }
         }
     }
-
+}
 
 @Composable
 private fun StoriesTray(
@@ -355,33 +336,13 @@ private fun StoriesTray(
                     modifier = Modifier.size(68.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (!currentUserProfile?.avatarUrl.isNullOrBlank()) {
-                        AsyncImage(
-                            model = currentUserProfile!!.avatarUrl,
-                            contentDescription = "Your Story",
-                            modifier = Modifier
-                                .size(60.dp)
-                                .clip(CircleShape)
-                                .border(1.dp, GlassBorder, CircleShape),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .size(60.dp)
-                                .clip(CircleShape)
-                                .background(Color(0x22FFFFFF))
-                                .border(1.dp, GlassBorder, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Person,
-                                contentDescription = "Plain User Icon",
-                                tint = LoopinSilver,
-                                modifier = Modifier.size(34.dp)
-                            )
-                        }
-                    }
+                    LoopinAvatar(
+                        avatarUrl = currentUserProfile?.avatarUrl,
+                        size = 60.dp,
+                        borderWidth = 1.dp,
+                        borderColor = GlassBorder,
+                        contentDescription = "Your Story"
+                    )
                     Box(
                         modifier = Modifier
                             .size(20.dp)
@@ -467,7 +428,7 @@ private fun GlassPostCard(
     onLike: () -> Unit,
     onComment: () -> Unit,
     onShareToDM: () -> Unit,
-    onOpenAuthorProfile: () -> Unit = {}
+    onOpenUserProfile: (username: String) -> Unit = {}
 ) {
     var isLiked by remember { mutableStateOf(false) }
     var showBigHeart by remember { mutableStateOf(false) }
@@ -500,39 +461,16 @@ private fun GlassPostCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(
-                    modifier = Modifier.clickable { onOpenAuthorProfile() },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (post.userAvatar.isNotBlank()) {
-                        AsyncImage(
-                            model = post.userAvatar,
-                            contentDescription = post.username,
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(CircleShape)
-                                .border(1.dp, GlassBorder, CircleShape),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(CircleShape)
-                                .background(Color(0x22FFFFFF))
-                                .border(1.dp, GlassBorder, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Person,
-                                contentDescription = null,
-                                tint = LoopinSilver,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    LoopinAvatar(
+                        avatarUrl = post.userAvatar,
+                        size = 36.dp,
+                        borderWidth = 1.dp,
+                        borderColor = GlassBorder,
+                        onClick = { onOpenUserProfile(post.username) }
+                    )
                     Spacer(modifier = Modifier.width(10.dp))
-                    Column {
+                    Column(modifier = Modifier.clickable { onOpenUserProfile(post.username) }) {
                         Text(
                             text = post.username,
                             fontSize = 13.sp,
@@ -541,7 +479,7 @@ private fun GlassPostCard(
                         )
                         if (post.communityName.isNotBlank()) {
                             Text(
-                                text = post.communityName,
+                                text = "in ${post.communityName}",
                                 fontSize = 11.sp,
                                 color = LoopinIrisGlow
                             )
@@ -694,8 +632,7 @@ private fun GlassPostCard(
                             text = post.username + " ",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
-                            color = LoopinIrisGlow,
-                            modifier = Modifier.clickable { onOpenAuthorProfile() }
+                            color = TextPrimary
                         )
                         Text(
                             text = post.caption,
@@ -756,7 +693,7 @@ private fun EmptyFeedGlassCard(
             Spacer(modifier = Modifier.height(14.dp))
 
             Text(
-                text = "Squad #$squadId Feed is Fresh",
+                text = "Your Feed is Ready",
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
@@ -1164,33 +1101,21 @@ private fun GlassCommentsBottomSheet(
     comments: List<PostComment>,
     onDismiss: () -> Unit,
     onAddComment: (String) -> Unit,
-    onOpenUserProfile: (String) -> Unit = {}
+    onOpenUserProfile: (username: String) -> Unit = {}
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var commentText by remember { mutableStateOf("") }
 
-    ModalBottomSheet(
+    GlassModalSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color(0xFF121420),
-        scrimColor = Color(0x99000000)
+        title = "Comments"
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 32.dp)
+                .padding(bottom = 24.dp)
         ) {
-            Text(
-                text = "Comments",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary,
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .padding(bottom = 12.dp)
-            )
-
             Divider(color = Color(0x1AFFFFFF), thickness = 0.5.dp)
 
             LazyColumn(
@@ -1222,43 +1147,42 @@ private fun GlassCommentsBottomSheet(
                                 .padding(vertical = 8.dp),
                             verticalAlignment = Alignment.Top
                         ) {
-                            Box(modifier = Modifier.clickable { onOpenUserProfile(comment.username) }) {
-                                if (comment.userAvatar.isNotBlank()) {
-                                    AsyncImage(
-                                        model = comment.userAvatar,
-                                        contentDescription = comment.username,
-                                        modifier = Modifier
-                                            .size(30.dp)
-                                            .clip(CircleShape)
-                                            .border(1.dp, GlassBorder, CircleShape),
-                                        contentScale = ContentScale.Crop
+                            if (comment.userAvatar.isNotBlank()) {
+                                AsyncImage(
+                                    model = comment.userAvatar,
+                                    contentDescription = comment.username,
+                                    modifier = Modifier
+                                        .size(30.dp)
+                                        .clip(CircleShape)
+                                        .border(1.dp, GlassBorder, CircleShape)
+                                        .clickable { onOpenUserProfile(comment.username) },
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .size(30.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0x22FFFFFF))
+                                        .border(1.dp, GlassBorder, CircleShape)
+                                        .clickable { onOpenUserProfile(comment.username) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = null,
+                                        tint = LoopinSilver,
+                                        modifier = Modifier.size(18.dp)
                                     )
-                                } else {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(30.dp)
-                                            .clip(CircleShape)
-                                            .background(Color(0x22FFFFFF))
-                                            .border(1.dp, GlassBorder, CircleShape),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Person,
-                                            contentDescription = null,
-                                            tint = LoopinSilver,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
                                 }
                             }
                             Spacer(modifier = Modifier.width(10.dp))
-                            Column(modifier = Modifier.weight(1f)) {
+                            Column(modifier = Modifier.clickable { onOpenUserProfile(comment.username) }) {
                                 Text(
                                     text = comment.username,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = LoopinIrisGlow,
-                                    modifier = Modifier.clickable { onOpenUserProfile(comment.username) }
+                                    color = TextPrimary
                                 )
                                 Text(
                                     text = comment.text,
@@ -1309,165 +1233,4 @@ private fun GlassCommentsBottomSheet(
             }
         }
     }
-}
-
-@Composable
-private fun SearchUsersGlassModal(
-    publicUsers: List<UserProfile>,
-    onSelectUser: (UserProfile) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var query by remember { mutableStateOf("") }
-    val filtered = remember(query, publicUsers) {
-        if (query.isBlank()) {
-            publicUsers
-        } else {
-            publicUsers.filter {
-                it.username.contains(query, ignoreCase = true) ||
-                        it.displayName.contains(query, ignoreCase = true)
-            }
-        }
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = null,
-                    tint = LoopinIrisGlow,
-                    modifier = Modifier.size(22.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Search Users",
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-            }
-        },
-        text = {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                GlassTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    label = "Search by @username or name...",
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = null,
-                            tint = TextSecondary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("feed_user_search_input")
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                if (filtered.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 24.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = if (query.isBlank()) "No users found" else "No users matching \"$query\"",
-                            fontSize = 12.sp,
-                            color = TextMuted
-                        )
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(240.dp)
-                    ) {
-                        items(filtered, key = { it.userId }) { user ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0x12FFFFFF))
-                                    .clickable { onSelectUser(user) }
-                                    .padding(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier.size(36.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (user.avatarUrl.isNotBlank()) {
-                                        AsyncImage(
-                                            model = user.avatarUrl,
-                                            contentDescription = user.username,
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .clip(CircleShape),
-                                            contentScale = ContentScale.Crop
-                                        )
-                                    } else {
-                                        Icon(
-                                            imageVector = Icons.Default.Person,
-                                            contentDescription = null,
-                                            tint = LoopinSilver,
-                                            modifier = Modifier.size(24.dp)
-                                        )
-                                    }
-                                    Box(
-                                        modifier = Modifier
-                                            .size(9.dp)
-                                            .clip(CircleShape)
-                                            .background(if (user.isOnline) LoopinOnlineGreen else TextMuted)
-                                            .border(1.dp, Color(0xFF141724), CircleShape)
-                                            .align(Alignment.BottomEnd)
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.width(10.dp))
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = user.displayName.ifBlank { user.username },
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = TextPrimary
-                                        )
-                                        if (user.isPrivate) {
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Icon(
-                                                imageVector = Icons.Default.Lock,
-                                                contentDescription = "Private",
-                                                tint = LoopinIrisGlow,
-                                                modifier = Modifier.size(12.dp)
-                                            )
-                                        }
-                                    }
-                                    Text(
-                                        text = "@${user.username}",
-                                        fontSize = 11.sp,
-                                        color = LoopinIrisGlow
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(6.dp))
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Close", color = TextSecondary)
-            }
-        },
-        containerColor = Color(0xFF141724),
-        shape = RoundedCornerShape(22.dp)
-    )
 }

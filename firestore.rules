@@ -83,7 +83,16 @@ service cloud.firestore {
              (!('memberIds' in data) || (data.memberIds is list && data.memberIds.size() <= 500)) &&
              (!('lastMessage' in data) || data.lastMessage == null || (data.lastMessage is string && data.lastMessage.size() <= 500)) &&
              (!('lastMessageSender' in data) || data.lastMessageSender == null || (data.lastMessageSender is string && data.lastMessageSender.size() <= 60)) &&
-             (!('lastMessageTime' in data) || data.lastMessageTime == null || data.lastMessageTime is timestamp);
+             (!('lastMessageTime' in data) || data.lastMessageTime == null || data.lastMessageTime is timestamp) &&
+             (!('typingUserIds' in data) || (data.typingUserIds is list && data.typingUserIds.size() <= 100)) &&
+             (!('typingUsernames' in data) || (data.typingUsernames is list && data.typingUsernames.size() <= 100)) &&
+             (!('themeId' in data) || data.themeId == null || (data.themeId is string && data.themeId.size() <= 64)) &&
+             (!('disappearingDurationSec' in data) || data.disappearingDurationSec is int) &&
+             (!('nicknames' in data) || data.nicknames is map) &&
+             (!('mutedByUserIds' in data) || (data.mutedByUserIds is list && data.mutedByUserIds.size() <= 500)) &&
+             (!('blockedUserIds' in data) || (data.blockedUserIds is list && data.blockedUserIds.size() <= 500)) &&
+             (!('memberAvatars' in data) || data.memberAvatars is map) &&
+             (!('unreadByUserIds' in data) || (data.unreadByUserIds is list && data.unreadByUserIds.size() <= 100));
     }
 
     function isValidMessage(data) {
@@ -108,6 +117,9 @@ service cloud.firestore {
              (!('seenAt' in data) || data.seenAt == null || data.seenAt is timestamp) &&
              (!('seenByUserIds' in data) || (data.seenByUserIds is list && data.seenByUserIds.size() <= 500)) &&
              (!('deletedForUserIds' in data) || (data.deletedForUserIds is list && data.deletedForUserIds.size() <= 500)) &&
+             (!('expiresAt' in data) || data.expiresAt == null || data.expiresAt is timestamp) &&
+             (!('isViewOnce' in data) || data.isViewOnce is bool) &&
+             (!('isViewed' in data) || data.isViewed is bool) &&
              (!('reactions' in data) || (data.reactions is list && data.reactions.size() <= 50));
     }
 
@@ -201,7 +213,8 @@ service cloud.firestore {
       allow delete: if isSignedIn() && request.auth.uid in resource.data.memberIds;
 
       match /messages/{messageId} {
-        allow read: if isSignedIn();
+        allow read: if isSignedIn() &&
+                       (!('expiresAt' in resource.data) || resource.data.expiresAt == null || resource.data.expiresAt > request.time);
         allow create: if isSignedIn() &&
                          incoming().senderId == request.auth.uid &&
                          incoming().createdAt is timestamp &&
@@ -210,6 +223,7 @@ service cloud.firestore {
         allow update: if isSignedIn() && (
                          (incoming().diff(existing()).affectedKeys().hasOnly(['reactions']) && incoming().reactions is list) ||
                          (incoming().diff(existing()).affectedKeys().hasOnly(['isUnsent']) && incoming().isUnsent is bool) ||
+                         (incoming().diff(existing()).affectedKeys().hasOnly(['isViewed']) && incoming().isViewed is bool) ||
                          (incoming().diff(existing()).affectedKeys().hasOnly(['deletedForUserIds']) && incoming().deletedForUserIds is list) ||
                          (incoming().diff(existing()).affectedKeys().hasAny(['status', 'seenAt', 'seenByUserIds']))
                       );

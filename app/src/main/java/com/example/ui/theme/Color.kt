@@ -1,5 +1,7 @@
 package com.example.ui.theme
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
@@ -10,16 +12,66 @@ val LoopinSurface = Color(0xFF141724)
 val LoopinSurfaceElevated = Color(0xFF1A1E2E)
 
 // Liquid Frosted Glass Colors
-val GlassFill = Color(0x14FFFFFF)
-val GlassFillElevated = Color(0x22FFFFFF)
-val GlassFillSubtle = Color(0x0AFFFFFF)
-val GlassBorder = Color(0x28FFFFFF)
-val GlassBorderStrong = Color(0x55FFFFFF)
+val DarkGlassFill = Color(0x14FFFFFF)
+val DarkGlassFillElevated = Color(0x22FFFFFF)
+val DarkGlassFillSubtle = Color(0x0AFFFFFF)
+val DarkGlassBorder = Color(0x28FFFFFF)
+val DarkGlassBorderStrong = Color(0x55FFFFFF)
+
+val LightGlassFill = Color(0xF2FFFFFF)
+val LightGlassFillElevated = Color(0xFAFFFFFF)
+val LightGlassFillSubtle = Color(0xE0FFFFFF)
+val LightGlassBorder = Color(0x1F000000)
+val LightGlassBorderStrong = Color(0x33000000)
+
+val GlassFill: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = if (LocalIsDarkTheme.current) DarkGlassFill else LightGlassFill
+
+val GlassFillElevated: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = if (LocalIsDarkTheme.current) DarkGlassFillElevated else LightGlassFillElevated
+
+val GlassFillSubtle: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = if (LocalIsDarkTheme.current) DarkGlassFillSubtle else LightGlassFillSubtle
+
+val GlassBorder: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = if (LocalIsDarkTheme.current) DarkGlassBorder else LightGlassBorder
+
+val GlassBorderStrong: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = if (LocalIsDarkTheme.current) DarkGlassBorderStrong else LightGlassBorderStrong
 
 // Typography
-val TextPrimary = Color(0xFFF8F9FD)
-val TextSecondary = Color(0xFFA2A7BC)
-val TextMuted = Color(0xFF696E84)
+val DarkTextPrimary = Color(0xFFF8F9FD)
+val DarkTextSecondary = Color(0xFFA2A7BC)
+val DarkTextMuted = Color(0xFF696E84)
+
+val LightTextPrimary = Color(0xFF0F172A)
+val LightTextSecondary = Color(0xFF475569)
+val LightTextMuted = Color(0xFF64748B)
+
+val TextPrimary: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = if (LocalIsDarkTheme.current) DarkTextPrimary else LightTextPrimary
+
+val TextSecondary: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = if (LocalIsDarkTheme.current) DarkTextSecondary else LightTextSecondary
+
+val TextMuted: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = if (LocalIsDarkTheme.current) DarkTextMuted else LightTextMuted
 
 // Subtle Accents
 val LoopinIris = Color(0xFF7E74F1)
@@ -73,12 +125,8 @@ val LiquidButtonBrush = Brush.linearGradient(
 val InstaDark = LoopinBg
 val InstaDarkCard = LoopinSurface
 val InstaDarkElevated = LoopinSurfaceElevated
-val InstaTextPrimary = TextPrimary
-val InstaTextSecondary = TextSecondary
-val InstaBorder = GlassBorder
 val InstaPink = LoopinIris
 val InstaYellow = LoopinIrisGlow
 val InstaLikeRed = LoopinLikeRed
 val InstaStoryRingGradient = FrostedStoryRingGradient
 val InstaGradientBrush = GlassStrokeBrush
-

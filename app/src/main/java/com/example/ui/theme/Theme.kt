@@ -1,12 +1,16 @@
 package com.example.ui.theme
 
+import android.app.Activity
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
 val LocalIsDarkTheme = compositionLocalOf { true }
 
@@ -14,34 +18,34 @@ private val DarkGlassColorScheme = darkColorScheme(
     primary = LoopinIris,
     onPrimary = Color.White,
     primaryContainer = LoopinSurfaceElevated,
-    onPrimaryContainer = TextPrimary,
+    onPrimaryContainer = DarkTextPrimary,
     secondary = LoopinSilver,
     onSecondary = Color.Black,
     tertiary = LoopinIrisGlow,
     background = LoopinBg,
-    onBackground = TextPrimary,
+    onBackground = DarkTextPrimary,
     surface = LoopinSurface,
-    onSurface = TextPrimary,
-    surfaceVariant = GlassFill,
-    onSurfaceVariant = TextSecondary,
-    outline = GlassBorder
+    onSurface = DarkTextPrimary,
+    surfaceVariant = DarkGlassFill,
+    onSurfaceVariant = DarkTextSecondary,
+    outline = DarkGlassBorder
 )
 
 private val LightGlassColorScheme = lightColorScheme(
     primary = LoopinIris,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFE8EAF6),
-    onPrimaryContainer = Color(0xFF141728),
-    secondary = Color(0xFF4C5268),
+    primaryContainer = Color(0xFFEDE9FE),
+    onPrimaryContainer = LightTextPrimary,
+    secondary = Color(0xFF475569),
     onSecondary = Color.White,
     tertiary = LoopinIris,
-    background = Color(0xFFF1F3F9),
-    onBackground = Color(0xFF141728),
-    surface = Color(0xFFFCFCFD),
-    onSurface = Color(0xFF141728),
-    surfaceVariant = Color(0xE6FFFFFF),
-    onSurfaceVariant = Color(0xFF5B6178),
-    outline = Color(0x28000000)
+    background = Color(0xFFF6F8FC),
+    onBackground = LightTextPrimary,
+    surface = Color(0xFFFFFFFF),
+    onSurface = LightTextPrimary,
+    surfaceVariant = LightGlassFill,
+    onSurfaceVariant = LightTextSecondary,
+    outline = LightGlassBorder
 )
 
 @Composable
@@ -49,6 +53,18 @@ fun LoopinTheme(
     darkTheme: Boolean = true,
     content: @Composable () -> Unit
 ) {
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as? Activity)?.window
+            if (window != null) {
+                val insetsController = WindowCompat.getInsetsController(window, view)
+                insetsController.isAppearanceLightStatusBars = !darkTheme
+                insetsController.isAppearanceLightNavigationBars = !darkTheme
+            }
+        }
+    }
+
     CompositionLocalProvider(LocalIsDarkTheme provides darkTheme) {
         MaterialTheme(
             colorScheme = if (darkTheme) DarkGlassColorScheme else LightGlassColorScheme,

@@ -93,7 +93,17 @@ data class Room(
     val lastMessage: String = "",
     val lastMessageSender: String = "",
     @ServerTimestamp val lastMessageTime: Timestamp? = null,
-    @ServerTimestamp val createdAt: Timestamp? = null
+    @ServerTimestamp val createdAt: Timestamp? = null,
+    val typingUserIds: List<String> = emptyList(),
+    val typingUsernames: List<String> = emptyList(),
+    val unreadByUserIds: List<String> = emptyList(),
+    // Instagram DM Feature Parity:
+    val themeId: String = "iris_glow", // "iris_glow", "cosmic_midnight", "sunset_ember", "emerald_sea", "neon_ocean"
+    val disappearingDurationSec: Long = 0L, // 0 = Off, 86400 = 24 Hours, 604800 = 7 Days
+    val nicknames: Map<String, String> = emptyMap(), // userId -> nickname
+    val mutedByUserIds: List<String> = emptyList(),
+    val blockedUserIds: List<String> = emptyList(),
+    val memberAvatars: Map<String, String> = emptyMap() // userId -> avatarUrl
 )
 
 @IgnoreExtraProperties
@@ -103,7 +113,7 @@ data class RoomMessage(
     val senderName: String = "",
     val senderAvatar: String = "",
     val text: String = "",
-    val type: String = "text", // "text", "instant", "image", "voice", "spotify"
+    val type: String = "text", // "text", "instant", "image", "voice", "spotify", "system"
     val mediaUrl: String = "",
     val effect: String = "", // "sparkle", "fire", "iris_glow", "whisper", "loud", "invisible"
     val songTitle: String = "",
@@ -121,7 +131,11 @@ data class RoomMessage(
     val seenByUserIds: List<String> = emptyList(),
     val deletedForUserIds: List<String> = emptyList(),
     val reactions: List<String> = emptyList(),
-    @ServerTimestamp val createdAt: Timestamp? = null
+    @ServerTimestamp val createdAt: Timestamp? = null,
+    // Disappearing & Ephemeral Messages:
+    val expiresAt: Timestamp? = null,
+    val isViewOnce: Boolean = false,
+    val isViewed: Boolean = false
 )
 
 @IgnoreExtraProperties

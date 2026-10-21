@@ -12,31 +12,34 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.draw.scale
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.Alignment
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -45,31 +48,38 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.ui.auth.AuthAndOnboardingScreen
+import com.example.ui.communities.CommunitiesScreen
+import com.example.ui.direct.ChatDetailsScreen
 import com.example.ui.direct.ChatRoomScreen
 import com.example.ui.direct.DirectMessagesScreen
 import com.example.ui.feed.FeedScreen
 import com.example.ui.instants.InstantsScreen
 import com.example.ui.profile.ProfileScreen
 import com.example.ui.profile.SettingsScreen
+import com.example.ui.profile.UserProfileDetailDialog
 import com.example.ui.story.StoryViewer
+import androidx.activity.compose.BackHandler
+import androidx.compose.material.icons.filled.Search
+import com.example.ui.search.SearchScreen
+import com.example.ui.components.GlassNavBar
+import com.example.ui.components.GlassNavBarItem
 import com.example.ui.theme.FrostedStoryRingGradient
 import com.example.ui.theme.GlassBorder
-import com.example.ui.theme.GlassFillElevated
 import com.example.ui.theme.GlassStrokeBrush
-import com.example.ui.theme.LoopinBg
+import com.example.ui.theme.LocalIsDarkTheme
 import com.example.ui.theme.LoopinIris
 import com.example.ui.theme.LoopinIrisGlow
 import com.example.ui.theme.LoopinTheme
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import com.example.ui.viewmodel.MainViewModel
 
@@ -107,6 +117,8 @@ fun MainAppContent(viewModel: MainViewModel) {
     val musicNotes by viewModel.musicNotes.collectAsState()
     val instants by viewModel.instants.collectAsState()
     val publicUsers by viewModel.publicUsers.collectAsState()
+    val communities by viewModel.communities.collectAsState()
+    val selectedUserProfile by viewModel.selectedUserProfile.collectAsState()
     val activeStory by viewModel.activeStory.collectAsState()
     val comments by viewModel.comments.collectAsState()
     val selectedPostForComments by viewModel.selectedPostForComments.collectAsState()
@@ -116,8 +128,8 @@ fun MainAppContent(viewModel: MainViewModel) {
     val context = LocalContext.current
     var currentNavIndex by remember { mutableIntStateOf(0) }
     var showSettingsScreen by remember { mutableStateOf(false) }
+    var showChatDetails by remember { mutableStateOf(false) }
 
-    // Automatically update online status upon opening the app (User requested)
     LaunchedEffect(currentUser?.uid) {
         if (currentUser != null) {
             viewModel.setUserOnlineStatus(true)
@@ -132,10 +144,9 @@ fun MainAppContent(viewModel: MainViewModel) {
     }
 
     if (currentUser == null || userProfile == null || !userProfile!!.onboardingComplete) {
-        // Initial Page (One time) for Authentication, Profile Setup & Onboarding Tutorials
         AuthAndOnboardingScreen(
             isSignedIn = currentUser != null,
-            onAuthSuccess = { /* auth state listener updates */ },
+            onAuthSuccess = { /* auth listener updates automatically */ },
             onSaveProfile = { username, displayName, bio, avatarUrl, squadId ->
                 viewModel.saveProfileAndSquad(
                     username = username,
@@ -147,10 +158,10 @@ fun MainAppContent(viewModel: MainViewModel) {
             }
         )
     } else {
-        // Authenticated user session with completed onboarding & squad assignment
         Box(modifier = Modifier.fillMaxSize()) {
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
+                contentWindowInsets = WindowInsets(0, 0, 0, 0),
                 bottomBar = {
                     if (currentRoom == null && activeStory == null && !showSettingsScreen) {
                         InstagramBottomBar(
@@ -164,9 +175,10 @@ fun MainAppContent(viewModel: MainViewModel) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(innerPadding)
+                        .padding(bottom = innerPadding.calculateBottomPadding())
                 ) {
                     when (currentNavIndex) {
+                        // 0: Feed / Home
                         0 -> FeedScreen(
                             userProfile = userProfile,
                             posts = posts,
@@ -182,14 +194,36 @@ fun MainAppContent(viewModel: MainViewModel) {
                                 viewModel.createStory(mediaUrl, caption, songTitle, songArtist)
                             },
                             onCreatePost = { caption, imageUrl -> viewModel.createPost(caption, imageUrl) },
-                            onNavigateToDMs = { currentNavIndex = 2 }
+                            onNavigateToDMs = { currentNavIndex = 3 },
+                            onOpenUserProfile = { username -> viewModel.openUserProfileByUsername(username) }
                         )
-                        1 -> InstantsScreen(
+
+                        // 1: Communities Hub (Open groups / topics, not locked to a single community)
+                        1 -> CommunitiesScreen(
+                            userProfile = userProfile,
+                            communities = communities,
+                            posts = posts,
+                            comments = comments,
+                            selectedPostForComments = selectedPostForComments,
+                            onLikePost = { viewModel.likePost(it) },
+                            onOpenComments = { viewModel.openCommentsForPost(it) },
+                            onCloseComments = { viewModel.closeComments() },
+                            onAddComment = { viewModel.addComment(it) },
+                            onCreatePost = { caption, imageUrl, commId, commName ->
+                                viewModel.createPost(caption, imageUrl, commId, commName)
+                            },
+                            onOpenUserProfile = { username -> viewModel.openUserProfileByUsername(username) }
+                        )
+
+                        // 2: Instants (Flash photo drops)
+                        2 -> InstantsScreen(
                             userProfile = userProfile,
                             instants = instants,
                             onPostInstant = { imageUrl, caption -> viewModel.postInstant(imageUrl, caption) }
                         )
-                        2 -> DirectMessagesScreen(
+
+                        // 3: Messages (Private DMs & Shared Group Chats)
+                        3 -> DirectMessagesScreen(
                             userProfile = userProfile,
                             rooms = rooms,
                             musicNotes = musicNotes,
@@ -198,6 +232,10 @@ fun MainAppContent(viewModel: MainViewModel) {
                             onStartDirectMessage = { userId, username ->
                                 viewModel.startDirectMessage(userId, username)
                             },
+                            onCreateGroupRoom = { groupName, memberIds, memberUsernames ->
+                                viewModel.createGroupRoom(groupName, memberIds, memberUsernames)
+                            },
+                            onOpenUserProfile = { username -> viewModel.openUserProfileByUsername(username) },
                             onSaveNote = { song, artist, text, cover, uri, audio ->
                                 viewModel.saveMusicNote(song, artist, text, cover, uri, audio)
                             },
@@ -206,25 +244,40 @@ fun MainAppContent(viewModel: MainViewModel) {
                             },
                             onBack = { currentNavIndex = 0 }
                         )
-                        3 -> ProfileScreen(
+
+                        // 4: Profile
+                        4 -> ProfileScreen(
                             userProfile = userProfile,
                             userPosts = posts.filter { it.userId == userProfile?.userId },
                             onOpenSettings = { showSettingsScreen = true }
                         )
+
+                        // 5: Separate Search & Explore Tab (matches attached images)
+                        5 -> SearchScreen(
+                            posts = posts,
+                            publicUsers = publicUsers,
+                            onOpenUserProfile = { username -> viewModel.openUserProfileByUsername(username) },
+                            onOpenPostComments = { viewModel.openCommentsForPost(it) },
+                            onBack = { currentNavIndex = 0 }
+                        )
+                    }
+
+                    BackHandler(enabled = currentNavIndex != 0 && currentRoom == null && activeStory == null && !showSettingsScreen) {
+                        currentNavIndex = 0
                     }
                 }
             }
 
-            // Dedicated Settings Screen Overlay (Profile edit, theme toggle, switch squad, publicbase switch)
+            // Dedicated Settings Screen Overlay
             if (showSettingsScreen) {
                 SettingsScreen(
                     userProfile = userProfile,
                     isDarkTheme = isDarkTheme,
-                    onSaveProfile = { name, bio, user, avatar, isPublic ->
-                        viewModel.updateUserProfile(name, bio, user, avatar, isPublic)
+                    onSaveProfile = { name, bio, user, avatar, isPublic, isPrivate ->
+                        viewModel.updateUserProfile(name, bio, user, avatar, isPublic, isPrivate)
                     },
                     onToggleOnlineStatus = { viewModel.setUserOnlineStatus(it) },
-                    onUpdateSquad = { viewModel.updateSquad(it) },
+                    onToggleBlock = { viewModel.toggleBlockUser(it) },
                     onToggleTheme = { viewModel.setDarkTheme(it) },
                     onSignOut = { showSettingsScreen = false },
                     onBack = { showSettingsScreen = false }
@@ -237,7 +290,7 @@ fun MainAppContent(viewModel: MainViewModel) {
                     room = currentRoom!!,
                     messages = currentRoomMessages,
                     currentUserProfile = userProfile,
-                    onSendMessage = { text, type, mediaUrl, effect, songTitle, songArtist, songCoverUrl, spotifyTrackUri, audioDurationSec ->
+                    onSendMessage = { text, type, mediaUrl, effect, songTitle, songArtist, songCoverUrl, spotifyTrackUri, audioDurationSec, replyId, replyText, replySender ->
                         viewModel.sendMessage(
                             text = text,
                             type = type,
@@ -247,13 +300,59 @@ fun MainAppContent(viewModel: MainViewModel) {
                             songArtist = songArtist,
                             songCoverUrl = songCoverUrl,
                             spotifyTrackUri = spotifyTrackUri,
-                            audioDurationSec = audioDurationSec
+                            audioDurationSec = audioDurationSec,
+                            replyToMessageId = replyId,
+                            replyToText = replyText,
+                            replyToSenderName = replySender
                         )
                     },
                     onToggleReaction = { msgId, reactions, emoji ->
                         viewModel.toggleMessageReaction(msgId, reactions, emoji)
                     },
-                    onBack = { viewModel.closeRoom() }
+                    onUnsendMessage = { viewModel.unsendMessage(it) },
+                    onDeleteForYou = { viewModel.deleteMessageForYou(it) },
+                    onForwardMessage = { targetRoom, msg -> viewModel.forwardMessage(targetRoom, msg) },
+                    availableRooms = rooms,
+                    onOpenUserProfile = { username -> viewModel.openUserProfileByUsername(username) },
+                    onOpenDetails = { showChatDetails = true },
+                    onMarkMessageViewed = { viewModel.markMessageAsViewed(it) },
+                    onUserTyping = { isTyping -> viewModel.setUserTyping(isTyping) },
+                    onBack = {
+                        showChatDetails = false
+                        viewModel.closeRoom()
+                    }
+                )
+            }
+
+            // Conversation Details Overlay
+            if (showChatDetails && currentRoom != null) {
+                ChatDetailsScreen(
+                    room = currentRoom!!,
+                    messages = currentRoomMessages,
+                    currentUserProfile = userProfile,
+                    onBack = { showChatDetails = false },
+                    onOpenUserProfile = { username ->
+                        showChatDetails = false
+                        viewModel.openUserProfileByUsername(username)
+                    },
+                    onStartSearchInChat = {
+                        showChatDetails = false
+                    },
+                    onUpdateTheme = { themeId ->
+                        viewModel.updateChatTheme(currentRoom!!.id, themeId)
+                    },
+                    onSetDisappearingMessages = { durationSec ->
+                        viewModel.setDisappearingMessages(currentRoom!!.id, durationSec)
+                    },
+                    onSetNickname = { targetUserId, nickname ->
+                        viewModel.setParticipantNickname(currentRoom!!.id, targetUserId, nickname)
+                    },
+                    onToggleMute = { isMuted ->
+                        viewModel.toggleMuteRoom(currentRoom!!.id, isMuted)
+                    },
+                    onToggleBlock = { targetUserId, _ ->
+                        viewModel.toggleBlockUser(targetUserId)
+                    }
                 )
             }
 
@@ -269,6 +368,23 @@ fun MainAppContent(viewModel: MainViewModel) {
                     }
                 )
             }
+
+            // User Profile Detail Modal (Directly triggered when clicking any username)
+            if (selectedUserProfile != null) {
+                UserProfileDetailDialog(
+                    user = selectedUserProfile!!,
+                    currentUser = userProfile,
+                    userPosts = posts.filter { it.userId == selectedUserProfile?.userId },
+                    isDarkTheme = isDarkTheme,
+                    onToggleFollow = { viewModel.toggleFollowUser(it) },
+                    onToggleBlock = { viewModel.toggleBlockUser(it) },
+                    onStartDirectMessage = { uid, uname ->
+                        viewModel.closeSelectedUserProfile()
+                        viewModel.startDirectMessage(uid, uname)
+                    },
+                    onDismiss = { viewModel.closeSelectedUserProfile() }
+                )
+            }
         }
     }
 }
@@ -279,122 +395,97 @@ fun InstagramBottomBar(
     onSelect: (Int) -> Unit,
     avatarUrl: String
 ) {
-    Box(
+    val isDark = LocalIsDarkTheme.current
+    val navItems = remember(avatarUrl) {
+        listOf(
+            GlassNavBarItem(
+                id = 0,
+                icon = Icons.Default.Home,
+                label = "Feed",
+                testTag = "nav_item_feed"
+            ),
+            GlassNavBarItem(
+                id = 1,
+                icon = Icons.Default.Groups,
+                label = "Communities",
+                testTag = "nav_item_communities"
+            ),
+            GlassNavBarItem(
+                id = 2,
+                icon = Icons.Default.FlashOn,
+                label = "Instants",
+                testTag = "nav_item_instants"
+            ),
+            GlassNavBarItem(
+                id = 3,
+                icon = Icons.AutoMirrored.Filled.Send,
+                label = "Messages",
+                hasBadge = true,
+                testTag = "nav_item_messages"
+            ),
+            GlassNavBarItem(
+                id = 4,
+                icon = Icons.Default.Person,
+                label = "Profile",
+                avatarUrl = avatarUrl,
+                testTag = "nav_item_profile"
+            )
+        )
+    }
+
+    GlassNavBar(
+        items = navItems,
+        selectedIndex = selectedIndex,
+        onItemSelected = onSelect,
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 10.dp)
-            .testTag("instagram_bottom_navigation")
-    ) {
-        // Floating Frosted Glass Pill
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(32.dp))
-                .background(Color(0x28FFFFFF))
-                .border(1.dp, GlassStrokeBrush, RoundedCornerShape(32.dp))
-                .padding(vertical = 4.dp, horizontal = 8.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceAround,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Item 0: Home / Feed
-                BottomBarGlassItem(
-                    isSelected = selectedIndex == 0,
-                    onClick = { onSelect(0) }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Home,
-                        contentDescription = "Feed",
-                        tint = if (selectedIndex == 0) LoopinIrisGlow else TextSecondary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
+            .navigationBarsPadding()
+            .testTag("instagram_bottom_navigation"),
+        trailingItem = {
+            // Separate Circular Search Tab Button
+            val isSearchSelected = selectedIndex == 5
+            val searchInteractionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+            val isPressed by searchInteractionSource.collectIsPressedAsState()
+            val scaleAnim by androidx.compose.animation.core.animateFloatAsState(
+                targetValue = if (isPressed) 0.90f else 1.0f,
+                animationSpec = androidx.compose.animation.core.spring(
+                    dampingRatio = 0.6f,
+                    stiffness = androidx.compose.animation.core.Spring.StiffnessMedium
+                ),
+                label = "searchButtonScale"
+            )
 
-                // Item 1: Instants (Flash)
-                BottomBarGlassItem(
-                    isSelected = selectedIndex == 1,
-                    onClick = { onSelect(1) }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.FlashOn,
-                        contentDescription = "Instants",
-                        tint = if (selectedIndex == 1) LoopinIrisGlow else TextSecondary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-
-                // Item 2: DMs (Send)
-                BottomBarGlassItem(
-                    isSelected = selectedIndex == 2,
-                    onClick = { onSelect(2) }
-                ) {
-                    BadgedBox(
-                        badge = {
-                            Box(
-                                modifier = Modifier
-                                    .size(7.dp)
-                                    .clip(CircleShape)
-                                    .background(LoopinIrisGlow)
-                            )
+            Box(
+                modifier = Modifier
+                    .scale(scaleAnim)
+                    .size(50.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (isSearchSelected) {
+                            Brush.linearGradient(listOf(LoopinIris, LoopinIrisGlow))
+                        } else {
+                            if (isDark) Brush.linearGradient(listOf(Color(0x38141724), Color(0x38141724)))
+                            else Brush.linearGradient(listOf(Color(0xF7FFFFFF), Color(0xF7FFFFFF)))
                         }
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Messages",
-                            tint = if (selectedIndex == 2) LoopinIrisGlow else TextSecondary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                }
-
-                // Item 3: Profile
-                BottomBarGlassItem(
-                    isSelected = selectedIndex == 3,
-                    onClick = { onSelect(3) }
-                ) {
-                    if (avatarUrl.isNotBlank()) {
-                        AsyncImage(
-                            model = avatarUrl,
-                            contentDescription = "Profile",
-                            modifier = Modifier
-                                .size(26.dp)
-                                .clip(CircleShape)
-                                .border(
-                                    width = if (selectedIndex == 3) 2.dp else 1.dp,
-                                    brush = if (selectedIndex == 3) FrostedStoryRingGradient else GlassStrokeBrush,
-                                    shape = CircleShape
-                                )
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Profile",
-                            tint = if (selectedIndex == 3) LoopinIrisGlow else TextSecondary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
+                    )
+                    .border(
+                        width = 1.dp,
+                        color = if (isSearchSelected) LoopinIrisGlow else if (isDark) GlassBorder else Color(0x18000000),
+                        shape = CircleShape
+                    )
+                    .clickable(
+                        interactionSource = searchInteractionSource,
+                        indication = null
+                    ) { onSelect(5) }
+                    .testTag("bottom_bar_search_button"),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Search & Explore",
+                    tint = if (isSearchSelected) Color.White else (if (isDark) TextSecondary else Color(0xFF141728)),
+                    modifier = Modifier.size(24.dp)
+                )
             }
         }
-    }
-}
-
-@Composable
-private fun BottomBarGlassItem(
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    content: @Composable () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(if (isSelected) Color(0x337E74F1) else Color.Transparent)
-            .clickable { onClick() }
-            .padding(horizontal = 14.dp, vertical = 8.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        content()
-    }
+    )
 }

@@ -63,6 +63,8 @@ import com.example.ui.components.LiquidGlassBackground
 import com.example.ui.theme.FrostedStoryRingGradient
 import com.example.ui.theme.GlassBorder
 import com.example.ui.theme.GlassStrokeBrush
+import androidx.compose.foundation.layout.statusBarsPadding
+import com.example.ui.theme.LocalIsDarkTheme
 import com.example.ui.theme.LoopinIris
 import com.example.ui.theme.LoopinIrisGlow
 import com.example.ui.theme.TextMuted
@@ -77,6 +79,7 @@ fun InstantsScreen(
     instants: List<InstantItem>,
     onPostInstant: (imageUrl: String, caption: String) -> Unit
 ) {
+    val isDark = LocalIsDarkTheme.current
     var showDropModal by remember { mutableStateOf(false) }
 
     LiquidGlassBackground {
@@ -92,7 +95,15 @@ fun InstantsScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                        .statusBarsPadding()
+                        .height(58.dp)
+                        .background(if (isDark) Color(0x3308090E) else Color(0xEEFFFFFF))
+                        .border(
+                            width = 0.5.dp,
+                            color = if (isDark) Color(0x18FFFFFF) else Color(0x12000000),
+                            shape = RoundedCornerShape(0.dp)
+                        )
+                        .padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -121,7 +132,7 @@ fun InstantsScreen(
                                 color = TextPrimary
                             )
                             Text(
-                                text = "Squad #${userProfile?.squadId ?: "ALPHA"} drops",
+                                text = "Live photo drops",
                                 fontSize = 11.sp,
                                 color = LoopinIrisGlow
                             )
@@ -275,7 +286,7 @@ private fun FrostedInstantCard(instant: InstantItem) {
                         color = TextPrimary
                     )
                     Text(
-                        text = "Instant ⚡ • Squad #${instant.squadId}",
+                        text = "Instant ⚡",
                         fontSize = 11.sp,
                         color = LoopinIrisGlow
                     )

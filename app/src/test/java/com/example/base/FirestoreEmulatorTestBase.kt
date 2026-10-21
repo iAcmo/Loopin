@@ -13,11 +13,14 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.After
+import org.junit.Assume
 import org.junit.Before
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.LooperMode
+import java.net.InetSocketAddress
+import java.net.Socket
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
@@ -32,6 +35,12 @@ abstract class FirestoreEmulatorTestBase {
   open fun setUpFirebase() {
     val context = ApplicationProvider.getApplicationContext<Context>()
     databaseId = context.getString(com.example.R.string.firestore_database_id)
+
+    val emulatorAvailable = isPortReachable(EMULATOR_HOST, FIRESTORE_PORT) && isPortReachable(EMULATOR_HOST, AUTH_PORT)
+    Assume.assumeTrue(
+      "Firebase emulators not running on $EMULATOR_HOST:$FIRESTORE_PORT and $AUTH_PORT. Skipping emulator-backed tests.",
+      emulatorAvailable
+    )
 
     val app = if (FirebaseApp.getApps(context).isEmpty()) {
       val newApp = FirebaseApp.initializeApp(
@@ -61,7 +70,20 @@ abstract class FirestoreEmulatorTestBase {
 
   @After
   open fun tearDownFirebase() {
-    auth.signOut()
+    if (::auth.isInitialized) {
+      auth.signOut()
+    }
+  }
+
+  private fun isPortReachable(host: String, port: Int): Boolean {
+    return try {
+      Socket().use { socket ->
+        socket.connect(InetSocketAddress(host, port), 250)
+        true
+      }
+    } catch (_: Exception) {
+      false
+    }
   }
 
   protected suspend fun signInTestUser(email: String): String = withContext(Dispatchers.IO) {

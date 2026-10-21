@@ -17,6 +17,7 @@ import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.auth
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -83,77 +84,99 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _isDarkTheme.value = enabled
     }
 
+    private var dataObservationJob: Job? = null
+
     init {
         auth.addAuthStateListener { firebaseAuth ->
             val user = firebaseAuth.currentUser
             _currentUser.value = user
             if (user != null) {
-                observeUserData(user.uid)
+                startObservingData(user.uid)
             } else {
-                _userProfile.value = null
+                stopObservingData()
             }
         }
         val user = auth.currentUser
         if (user != null) {
-            observeUserData(user.uid)
+            startObservingData(user.uid)
+        } else {
+            stopObservingData()
         }
-        loadCommunities()
     }
 
     fun clearToast() {
         _toastMessage.value = null
     }
 
-    private fun loadCommunities() {
-        viewModelScope.launch {
-            repository.seedDefaultCommunities()
-            repository.observeCommunities().collectLatest { list ->
-                _communities.value = list
+    private fun startObservingData(uid: String) {
+        dataObservationJob?.cancel()
+        dataObservationJob = viewModelScope.launch {
+            launch {
+                repository.seedDefaultCommunities()
+                repository.observeCommunities().collectLatest { list ->
+                    _communities.value = list
+                }
             }
-        }
-    }
-
-    private fun observeUserData(uid: String) {
-        viewModelScope.launch {
-            repository.observeUserProfile(uid).collectLatest { profile ->
-                _userProfile.value = profile
-                if (profile != null) {
-                    if (!profile.isOnline) {
+            launch {
+                repository.observeUserProfile(uid).collectLatest { profile ->
+                    _userProfile.value = profile
+                    if (profile != null && !profile.isOnline) {
                         repository.setUserOnlineStatus(true)
                     }
                 }
             }
-        }
-        viewModelScope.launch {
-            repository.observePublicUsers().collectLatest { userList ->
-                _publicUsers.value = userList
+            launch {
+                repository.observePublicUsers().collectLatest { userList ->
+                    _publicUsers.value = userList
+                }
+            }
+            launch {
+                repository.observePosts().collectLatest { postList ->
+                    _posts.value = postList
+                }
+            }
+            launch {
+                repository.observeStories().collectLatest { storyList ->
+                    _stories.value = storyList
+                }
+            }
+            launch {
+                repository.observeRooms().collectLatest { roomList ->
+                    _rooms.value = roomList
+                    val current = _currentRoom.value
+                    if (current != null) {
+                        val currentId = current.roomId.ifBlank { current.id }
+                        val updated = roomList.find { (it.roomId.ifBlank { it.id }) == currentId }
+                        if (updated != null) {
+                            _currentRoom.value = updated
+                        }
+                    }
+                }
+            }
+            launch {
+                repository.observeNotes().collectLatest { notesList ->
+                    _musicNotes.value = notesList
+                }
+            }
+            launch {
+                repository.observeInstants().collectLatest { instantList ->
+                    _instants.value = instantList
+                }
             }
         }
-        viewModelScope.launch {
-            repository.observePosts().collectLatest { postList ->
-                _posts.value = postList
-            }
-        }
-        viewModelScope.launch {
-            repository.observeStories().collectLatest { storyList ->
-                _stories.value = storyList
-            }
-        }
-        viewModelScope.launch {
-            repository.observeRooms().collectLatest { roomList ->
-                _rooms.value = roomList
-            }
-        }
-        viewModelScope.launch {
-            repository.observeNotes().collectLatest { notesList ->
-                _musicNotes.value = notesList
-            }
-        }
-        viewModelScope.launch {
-            repository.observeInstants().collectLatest { instantList ->
-                _instants.value = instantList
-            }
-        }
+    }
+
+    private fun stopObservingData() {
+        dataObservationJob?.cancel()
+        dataObservationJob = null
+        _userProfile.value = null
+        _posts.value = emptyList()
+        _stories.value = emptyList()
+        _rooms.value = emptyList()
+        _musicNotes.value = emptyList()
+        _instants.value = emptyList()
+        _publicUsers.value = emptyList()
+        _communities.value = InstaSquadRepository.DEFAULT_COMMUNITIES
     }
 
     fun saveProfileAndSquad(
@@ -373,11 +396,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private var messagesJob: kotlinx.coroutines.Job? = null
+    private var roomJob: kotlinx.coroutines.Job? = null
+    private var typingJob: kotlinx.coroutines.Job? = null
 
     fun selectRoom(room: Room) {
         val targetRoomId = room.roomId.ifBlank { room.id }
         _currentRoom.value = room
         messagesJob?.cancel()
+        roomJob?.cancel()
+        typingJob?.cancel()
+
+        roomJob = viewModelScope.launch {
+            repository.observeRoom(targetRoomId).collectLatest { updatedRoom ->
+                if (updatedRoom != null) {
+                    _currentRoom.value = updatedRoom
+                }
+            }
+        }
+
         messagesJob = viewModelScope.launch {
             repository.observeMessages(targetRoomId).collectLatest { msgList ->
                 _currentRoomMessages.value = msgList
@@ -388,10 +424,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun closeRoom() {
+        setUserTyping(false)
+        typingJob?.cancel()
+        typingJob = null
+        roomJob?.cancel()
+        roomJob = null
         messagesJob?.cancel()
         messagesJob = null
         _currentRoom.value = null
         _currentRoomMessages.value = emptyList()
+    }
+
+    fun setUserTyping(isTyping: Boolean) {
+        val room = _currentRoom.value ?: return
+        val targetRoomId = room.roomId.ifBlank { room.id }
+        val username = _userProfile.value?.let { it.displayName.ifBlank { it.username } } ?: return
+
+        typingJob?.cancel()
+        viewModelScope.launch {
+            repository.setTyping(targetRoomId, username, isTyping)
+        }
+
+        if (isTyping) {
+            typingJob = viewModelScope.launch {
+                kotlinx.coroutines.delay(3000)
+                repository.setTyping(targetRoomId, username, false)
+            }
+        }
     }
 
     fun sendMessage(
@@ -407,8 +466,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         replyToMessageId: String = "",
         replyToText: String = "",
         replyToSenderName: String = "",
-        isForwarded: Boolean = false
+        isForwarded: Boolean = false,
+        isViewOnce: Boolean = false
     ) {
+        setUserTyping(false)
         val room = _currentRoom.value ?: return
         val targetRoomId = room.roomId.ifBlank { room.id }
         val profile = _userProfile.value ?: return
@@ -430,7 +491,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 replyToMessageId = replyToMessageId,
                 replyToText = replyToText,
                 replyToSenderName = replyToSenderName,
-                isForwarded = isForwarded
+                isForwarded = isForwarded,
+                disappearingDurationSec = if (room.disappearingDurationSec > 0L) room.disappearingDurationSec else 0L,
+                isViewOnce = isViewOnce || (room.disappearingDurationSec == -1L)
             )
             if (result.isFailure) {
                 _toastMessage.value = "Failed to send: ${result.exceptionOrNull()?.localizedMessage}"
@@ -553,13 +616,89 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun startDirectMessage(otherUserId: String, otherUserName: String) {
+    fun updateChatTheme(roomId: String, themeId: String) {
+        viewModelScope.launch {
+            val res = repository.updateRoomTheme(roomId, themeId)
+            if (res.isSuccess) {
+                _currentRoom.value = _currentRoom.value?.copy(themeId = themeId)
+                _toastMessage.value = "Chat theme updated 🎨"
+            }
+        }
+    }
+
+    fun setDisappearingMessages(roomId: String, durationSec: Long) {
+        val profile = _userProfile.value ?: return
+        val actorName = profile.displayName.ifBlank { profile.username }
+        viewModelScope.launch {
+            val res = repository.setRoomDisappearingMessages(roomId, durationSec, actorName)
+            if (res.isSuccess) {
+                _currentRoom.value = _currentRoom.value?.copy(disappearingDurationSec = durationSec)
+                val label = when (durationSec) {
+                    0L -> "Disappearing messages turned off"
+                    -1L -> "View Once active: messages vanish after viewing ⚡"
+                    86400L -> "Messages disappear after 24 hours ⚡"
+                    604800L -> "Messages disappear after 7 days ⚡"
+                    else -> "Messages disappear after ${durationSec / 3600} hours"
+                }
+                _toastMessage.value = label
+            }
+        }
+    }
+
+    fun setParticipantNickname(roomId: String, targetUserId: String, nickname: String) {
+        viewModelScope.launch {
+            val res = repository.setParticipantNickname(roomId, targetUserId, nickname)
+            if (res.isSuccess) {
+                val updatedMap = _currentRoom.value?.nicknames?.toMutableMap() ?: mutableMapOf()
+                if (nickname.isBlank()) updatedMap.remove(targetUserId) else updatedMap[targetUserId] = nickname.trim()
+                _currentRoom.value = _currentRoom.value?.copy(nicknames = updatedMap)
+                _toastMessage.value = if (nickname.isBlank()) "Nickname removed" else "Nickname set to '$nickname'"
+            }
+        }
+    }
+
+    fun toggleMuteRoom(roomId: String, isMuted: Boolean) {
+        viewModelScope.launch {
+            val res = repository.toggleMuteRoom(roomId, isMuted)
+            if (res.isSuccess) {
+                val currentUid = auth.currentUser?.uid ?: ""
+                val currentMuted = _currentRoom.value?.mutedByUserIds ?: emptyList()
+                val updatedMuted = if (isMuted) (currentMuted + currentUid).distinct() else currentMuted.filter { it != currentUid }
+                _currentRoom.value = _currentRoom.value?.copy(mutedByUserIds = updatedMuted)
+                _toastMessage.value = if (isMuted) "Notifications muted 🔕" else "Notifications unmuted 🔔"
+            }
+        }
+    }
+
+    fun toggleBlockParticipant(roomId: String, targetUserId: String, isBlocked: Boolean) {
+        viewModelScope.launch {
+            val res = repository.toggleBlockRoomParticipant(roomId, targetUserId, isBlocked)
+            if (res.isSuccess) {
+                val currentBlocked = _currentRoom.value?.blockedUserIds ?: emptyList()
+                val updated = if (isBlocked) (currentBlocked + targetUserId).distinct() else currentBlocked.filter { it != targetUserId }
+                _currentRoom.value = _currentRoom.value?.copy(blockedUserIds = updated)
+                _toastMessage.value = if (isBlocked) "User blocked 🚫" else "User unblocked"
+            }
+        }
+    }
+
+    fun markMessageAsViewed(messageId: String) {
+        val room = _currentRoom.value ?: return
+        val targetRoomId = room.roomId.ifBlank { room.id }
+        viewModelScope.launch {
+            repository.markMessageAsViewed(targetRoomId, messageId)
+        }
+    }
+
+    fun startDirectMessage(otherUserId: String, otherUserName: String, otherAvatarUrl: String = "") {
         val profile = _userProfile.value ?: return
         viewModelScope.launch {
             val result = repository.createDirectMessageRoom(
                 otherUserId = otherUserId,
                 otherUserName = otherUserName,
-                myName = profile.username
+                myName = profile.username,
+                otherAvatarUrl = otherAvatarUrl,
+                myAvatarUrl = profile.avatarUrl
             )
             if (result.isSuccess) {
                 val roomId = result.getOrThrow()
@@ -569,7 +708,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     isSquadRoom = false,
                     isGroup = false,
                     memberIds = listOf(profile.userId, otherUserId),
-                    memberUsernames = listOf(profile.username, otherUserName)
+                    memberUsernames = listOf(profile.username, otherUserName),
+                    memberAvatars = mapOf(profile.userId to profile.avatarUrl, otherUserId to otherAvatarUrl),
+                    themeId = "iris_glow"
                 )
                 selectRoom(targetRoom)
             }
@@ -593,7 +734,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     isSquadRoom = false,
                     isGroup = true,
                     memberIds = (memberIds + profile.userId).distinct(),
-                    memberUsernames = (memberUsernames + profile.username).distinct()
+                    memberUsernames = (memberUsernames + profile.username).distinct(),
+                    themeId = "iris_glow"
                 )
                 selectRoom(targetRoom)
                 _toastMessage.value = "Group $groupName created!"

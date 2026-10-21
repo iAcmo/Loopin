@@ -131,33 +131,12 @@ fun UserProfileDetailDialog(
 
                 // Avatar with online indicator
                 Box(contentAlignment = Alignment.BottomEnd) {
-                    if (user.avatarUrl.isNotBlank()) {
-                        AsyncImage(
-                            model = user.avatarUrl,
-                            contentDescription = user.displayName,
-                            modifier = Modifier
-                                .size(84.dp)
-                                .clip(CircleShape)
-                                .border(2.dp, FrostedStoryRingGradient, CircleShape),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .size(84.dp)
-                                .clip(CircleShape)
-                                .background(Color(0x287E74F1))
-                                .border(2.dp, GlassStrokeBrush, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Person,
-                                contentDescription = user.displayName,
-                                tint = LoopinIrisGlow,
-                                modifier = Modifier.size(46.dp)
-                            )
-                        }
-                    }
+                    com.example.ui.components.LoopinAvatar(
+                        avatarUrl = user.avatarUrl,
+                        size = 84.dp,
+                        borderWidth = 2.dp,
+                        borderBrush = FrostedStoryRingGradient
+                    )
 
                     // Online status dot
                     Box(

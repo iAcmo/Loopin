@@ -13,6 +13,7 @@ import com.example.data.model.Story
 import com.example.data.model.UserProfile
 import com.example.util.OperationType
 import com.example.util.handleFirestoreError
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -21,6 +22,7 @@ import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.snapshots
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.tasks.await
 
@@ -45,6 +47,7 @@ class InstaSquadRepository(
 
     // User Profile
     fun observeUserProfile(userId: String): Flow<UserProfile?> {
+        if (auth.currentUser == null) return flowOf(null)
         val path = "users/$userId"
         return db.collection("users").document(userId)
             .snapshots()
@@ -56,8 +59,8 @@ class InstaSquadRepository(
     }
 
     fun observePublicUsers(): Flow<List<UserProfile>> {
+        val currentUid = currentUserId() ?: return flowOf(emptyList())
         val path = "users"
-        val currentUid = currentUserId()
         return db.collection(path)
             .snapshots()
             .map { snap ->
@@ -229,6 +232,7 @@ class InstaSquadRepository(
 
     // Communities (Open communities replacing locked squads)
     fun observeCommunities(): Flow<List<Community>> {
+        if (auth.currentUser == null) return flowOf(DEFAULT_COMMUNITIES)
         val path = "communities"
         return db.collection(path)
             .snapshots()
@@ -244,6 +248,7 @@ class InstaSquadRepository(
     }
 
     suspend fun seedDefaultCommunities() {
+        if (auth.currentUser == null) return
         runCatching {
             val coll = db.collection("communities")
             for (comm in DEFAULT_COMMUNITIES) {
@@ -254,6 +259,7 @@ class InstaSquadRepository(
 
     // Posts & Feed
     fun observePosts(): Flow<List<Post>> {
+        if (auth.currentUser == null) return flowOf(emptyList())
         val path = "posts"
         return db.collection(path)
             .orderBy("createdAt", Query.Direction.DESCENDING)
@@ -309,6 +315,7 @@ class InstaSquadRepository(
     }
 
     fun observeComments(postId: String): Flow<List<PostComment>> {
+        if (auth.currentUser == null) return flowOf(emptyList())
         val path = "posts/$postId/comments"
         return db.collection("posts").document(postId).collection("comments")
             .orderBy("createdAt", Query.Direction.ASCENDING)
@@ -347,6 +354,7 @@ class InstaSquadRepository(
 
     // Stories
     fun observeStories(): Flow<List<Story>> {
+        if (auth.currentUser == null) return flowOf(emptyList())
         val path = "stories"
         return db.collection(path)
             .orderBy("createdAt", Query.Direction.DESCENDING)
@@ -391,8 +399,8 @@ class InstaSquadRepository(
 
     // Rooms (Strictly Private DMs and Group chats)
     fun observeRooms(): Flow<List<Room>> {
+        val uid = auth.currentUser?.uid ?: return flowOf(emptyList())
         val path = "rooms"
-        val uid = requireUserId()
         return db.collection(path)
             .snapshots()
             .map { snap ->
@@ -406,13 +414,37 @@ class InstaSquadRepository(
             }
     }
 
-    suspend fun createDirectMessageRoom(otherUserId: String, otherUserName: String, myName: String): Result<String> = runCatching {
+    fun observeRoom(roomId: String): Flow<Room?> {
+        if (auth.currentUser == null) return flowOf(null)
+        val path = "rooms/$roomId"
+        return db.collection("rooms").document(roomId)
+            .snapshots()
+            .map { snap ->
+                if (snap.exists()) snap.toObject(Room::class.java) else null
+            }
+            .catch { e ->
+                if (e is Exception) handleFirestoreError(e, OperationType.GET, path)
+                emit(null)
+            }
+    }
+
+    suspend fun createDirectMessageRoom(
+        otherUserId: String,
+        otherUserName: String,
+        myName: String,
+        otherAvatarUrl: String = "",
+        myAvatarUrl: String = ""
+    ): Result<String> = runCatching {
         val uid = requireUserId()
         val sortedIds = listOf(uid, otherUserId).sorted()
         val roomId = "dm_${sortedIds[0]}_${sortedIds[1]}"
         val docRef = db.collection("rooms").document(roomId)
         try {
             val existing = docRef.get().await()
+            val memberAvatarsMap = mutableMapOf<String, String>()
+            if (myAvatarUrl.isNotBlank()) memberAvatarsMap[uid] = myAvatarUrl
+            if (otherAvatarUrl.isNotBlank()) memberAvatarsMap[otherUserId] = otherAvatarUrl
+
             if (!existing.exists()) {
                 val payload = mapOf(
                     "roomId" to roomId,
@@ -422,12 +454,20 @@ class InstaSquadRepository(
                     "isGroup" to false,
                     "memberIds" to listOf(uid, otherUserId),
                     "memberUsernames" to listOf(myName, otherUserName),
+                    "memberAvatars" to memberAvatarsMap,
+                    "themeId" to "iris_glow",
+                    "disappearingDurationSec" to 0L,
+                    "nicknames" to emptyMap<String, String>(),
+                    "mutedByUserIds" to emptyList<String>(),
+                    "blockedUserIds" to emptyList<String>(),
                     "lastMessage" to "Started a conversation",
                     "lastMessageSender" to myName,
                     "lastMessageTime" to FieldValue.serverTimestamp(),
                     "createdAt" to FieldValue.serverTimestamp()
                 )
                 docRef.set(payload).await()
+            } else if (memberAvatarsMap.isNotEmpty()) {
+                docRef.set(mapOf("memberAvatars" to memberAvatarsMap), SetOptions.merge()).await()
             }
             roomId
         } catch (e: Exception) {
@@ -451,6 +491,11 @@ class InstaSquadRepository(
             "groupAdminId" to uid,
             "memberIds" to allMemberIds,
             "memberUsernames" to allMemberUsernames,
+            "themeId" to "iris_glow",
+            "disappearingDurationSec" to 0L,
+            "nicknames" to emptyMap<String, String>(),
+            "mutedByUserIds" to emptyList<String>(),
+            "blockedUserIds" to emptyList<String>(),
             "lastMessage" to "Created group $groupName",
             "lastMessageSender" to creatorName,
             "lastMessageTime" to FieldValue.serverTimestamp(),
@@ -462,14 +507,16 @@ class InstaSquadRepository(
 
     // Messages
     fun observeMessages(roomId: String): Flow<List<RoomMessage>> {
+        val uid = auth.currentUser?.uid ?: return flowOf(emptyList())
         val path = "rooms/$roomId/messages"
-        val uid = currentUserId() ?: ""
+        val now = Timestamp.now()
         return db.collection("rooms").document(roomId).collection("messages")
             .orderBy("createdAt", Query.Direction.ASCENDING)
             .snapshots()
             .map { snap ->
                 snap.toObjects(RoomMessage::class.java).filter { msg ->
-                    !msg.deletedForUserIds.contains(uid)
+                    !msg.deletedForUserIds.contains(uid) &&
+                    (msg.expiresAt == null || msg.expiresAt.seconds > now.seconds)
                 }
             }
             .catch { e ->
@@ -494,11 +541,17 @@ class InstaSquadRepository(
         replyToMessageId: String = "",
         replyToText: String = "",
         replyToSenderName: String = "",
-        isForwarded: Boolean = false
+        isForwarded: Boolean = false,
+        disappearingDurationSec: Long = 0L,
+        isViewOnce: Boolean = false
     ): Result<String> = runCatching {
         val uid = requireUserId()
         val msgRef = db.collection("rooms").document(roomId).collection("messages")
-        val payload = mapOf(
+        val expiresAtTimestamp = if (disappearingDurationSec > 0L) {
+            Timestamp(java.util.Date(System.currentTimeMillis() + disappearingDurationSec * 1000L))
+        } else null
+
+        val payload = mutableMapOf<String, Any?>(
             "senderId" to uid,
             "senderName" to senderName,
             "senderAvatar" to senderAvatar,
@@ -516,15 +569,22 @@ class InstaSquadRepository(
             "replyToSenderName" to replyToSenderName,
             "isUnsent" to false,
             "isForwarded" to isForwarded,
+            "isViewOnce" to isViewOnce,
+            "isViewed" to false,
             "status" to "sent",
             "seenByUserIds" to listOf(uid),
             "deletedForUserIds" to emptyList<String>(),
             "reactions" to emptyList<String>(),
             "createdAt" to FieldValue.serverTimestamp()
         )
+        if (expiresAtTimestamp != null) {
+            payload["expiresAt"] = expiresAtTimestamp
+        }
+
         try {
             val doc = msgRef.add(payload).await()
             val previewText = when {
+                isViewOnce -> "Sent a View-Once photo ⚡"
                 isForwarded -> "Forwarded message: $text"
                 type == "instant" -> "Sent an Instant photo ⚡"
                 type == "image" -> "Sent an image 📷"
@@ -533,12 +593,20 @@ class InstaSquadRepository(
                 else -> text.ifBlank { "Shared media" }
             }
             runCatching {
-                db.collection("rooms").document(roomId).set(
+                val roomDoc = db.collection("rooms").document(roomId)
+                val roomSnap = roomDoc.get().await()
+                val memberIds = (roomSnap.get("memberIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+                val otherMembers = memberIds.filter { it != uid }
+
+                roomDoc.set(
                     mapOf(
                         "roomId" to roomId,
                         "lastMessage" to previewText,
                         "lastMessageSender" to senderName,
-                        "lastMessageTime" to FieldValue.serverTimestamp()
+                        "lastMessageTime" to FieldValue.serverTimestamp(),
+                        "unreadByUserIds" to otherMembers,
+                        "typingUserIds" to FieldValue.arrayRemove(uid),
+                        "typingUsernames" to FieldValue.arrayRemove(senderName)
                     ),
                     SetOptions.merge()
                 ).await()
@@ -548,6 +616,70 @@ class InstaSquadRepository(
             handleFirestoreError(e, OperationType.CREATE, msgRef.path)
             throw e
         }
+    }
+
+    suspend fun updateRoomTheme(roomId: String, themeId: String): Result<Unit> = runCatching {
+        requireUserId()
+        db.collection("rooms").document(roomId).update("themeId", themeId).await()
+    }
+
+    suspend fun setRoomDisappearingMessages(roomId: String, durationSec: Long, actorName: String): Result<Unit> = runCatching {
+        val uid = requireUserId()
+        val roomDoc = db.collection("rooms").document(roomId)
+        roomDoc.update("disappearingDurationSec", durationSec).await()
+        val durationLabel = when (durationSec) {
+            0L -> "off"
+            86400L -> "24 hours"
+            604800L -> "7 days"
+            else -> "${durationSec / 3600} hours"
+        }
+        val sysMsg = if (durationSec == 0L) {
+            "$actorName turned off disappearing messages."
+        } else {
+            "$actorName set disappearing messages to $durationLabel."
+        }
+        roomDoc.collection("messages").add(
+            mapOf(
+                "senderId" to uid,
+                "senderName" to "Loopin",
+                "senderAvatar" to "",
+                "text" to sysMsg,
+                "type" to "system",
+                "createdAt" to FieldValue.serverTimestamp()
+            )
+        ).await()
+    }
+
+    suspend fun setParticipantNickname(roomId: String, targetUserId: String, nickname: String): Result<Unit> = runCatching {
+        requireUserId()
+        val roomDoc = db.collection("rooms").document(roomId)
+        roomDoc.update("nicknames.$targetUserId", nickname.trim()).await()
+    }
+
+    suspend fun toggleMuteRoom(roomId: String, isMuted: Boolean): Result<Unit> = runCatching {
+        val uid = requireUserId()
+        val roomDoc = db.collection("rooms").document(roomId)
+        if (isMuted) {
+            roomDoc.update("mutedByUserIds", FieldValue.arrayUnion(uid)).await()
+        } else {
+            roomDoc.update("mutedByUserIds", FieldValue.arrayRemove(uid)).await()
+        }
+    }
+
+    suspend fun toggleBlockRoomParticipant(roomId: String, targetUserId: String, isBlocked: Boolean): Result<Unit> = runCatching {
+        requireUserId()
+        val roomDoc = db.collection("rooms").document(roomId)
+        if (isBlocked) {
+            roomDoc.update("blockedUserIds", FieldValue.arrayUnion(targetUserId)).await()
+        } else {
+            roomDoc.update("blockedUserIds", FieldValue.arrayRemove(targetUserId)).await()
+        }
+    }
+
+    suspend fun markMessageAsViewed(roomId: String, messageId: String): Result<Unit> = runCatching {
+        requireUserId()
+        val msgRef = db.collection("rooms").document(roomId).collection("messages").document(messageId)
+        msgRef.update("isViewed", true).await()
     }
 
     suspend fun unsendMessage(roomId: String, messageId: String): Result<Unit> = runCatching {
@@ -589,6 +721,32 @@ class InstaSquadRepository(
                 ).await()
             }
         }
+        runCatching {
+            db.collection("rooms").document(roomId).update(
+                "unreadByUserIds", FieldValue.arrayRemove(uid)
+            ).await()
+        }
+    }
+
+    suspend fun setTyping(roomId: String, username: String, isTyping: Boolean): Result<Unit> = runCatching {
+        val uid = auth.currentUser?.uid ?: return@runCatching
+        val docRef = db.collection("rooms").document(roomId)
+        if (isTyping) {
+            docRef.set(
+                mapOf(
+                    "typingUserIds" to FieldValue.arrayUnion(uid),
+                    "typingUsernames" to FieldValue.arrayUnion(username)
+                ),
+                SetOptions.merge()
+            ).await()
+        } else {
+            docRef.update(
+                mapOf(
+                    "typingUserIds" to FieldValue.arrayRemove(uid),
+                    "typingUsernames" to FieldValue.arrayRemove(username)
+                )
+            ).await()
+        }
     }
 
     suspend fun toggleReaction(roomId: String, messageId: String, currentReactions: List<String>, reactionEmoji: String): Result<Unit> = runCatching {
@@ -608,6 +766,7 @@ class InstaSquadRepository(
 
     // Music Notes
     fun observeNotes(): Flow<List<MusicNote>> {
+        if (auth.currentUser == null) return flowOf(emptyList())
         val path = "notes"
         return db.collection(path)
             .orderBy("createdAt", Query.Direction.DESCENDING)
@@ -667,6 +826,7 @@ class InstaSquadRepository(
 
     // Instants
     fun observeInstants(): Flow<List<InstantItem>> {
+        if (auth.currentUser == null) return flowOf(emptyList())
         val path = "instants"
         return db.collection(path)
             .orderBy("createdAt", Query.Direction.DESCENDING)
@@ -714,7 +874,7 @@ class InstaSquadRepository(
                 description = "Silicon dreams, generative AI, robotics & coding",
                 iconEmoji = "🤖",
                 bannerColorHex = "#7E74F1",
-                memberCount = 1420L,
+                memberCount = 0L,
                 category = "Technology"
             ),
             Community(
@@ -724,7 +884,7 @@ class InstaSquadRepository(
                 description = "Track releases, Spotify deep cuts & indie drops",
                 iconEmoji = "🎵",
                 bannerColorHex = "#1DB954",
-                memberCount = 2890L,
+                memberCount = 0L,
                 category = "Music"
             ),
             Community(
@@ -734,7 +894,7 @@ class InstaSquadRepository(
                 description = "Liquid glassmorphism, UI/UX, typography & 3D art",
                 iconEmoji = "🎨",
                 bannerColorHex = "#EC4899",
-                memberCount = 980L,
+                memberCount = 0L,
                 category = "Creative"
             ),
             Community(
@@ -744,7 +904,7 @@ class InstaSquadRepository(
                 description = "Clips, setups, esports scrims & game recommendations",
                 iconEmoji = "🎮",
                 bannerColorHex = "#8B5CF6",
-                memberCount = 3450L,
+                memberCount = 0L,
                 category = "Gaming"
             ),
             Community(
@@ -754,7 +914,7 @@ class InstaSquadRepository(
                 description = "Street photography, film aesthetics & moody portraits",
                 iconEmoji = "📸",
                 bannerColorHex = "#06B6D4",
-                memberCount = 1670L,
+                memberCount = 0L,
                 category = "Creative"
             ),
             Community(
@@ -764,7 +924,7 @@ class InstaSquadRepository(
                 description = "Workouts, daily routines & health motivation",
                 iconEmoji = "⚡",
                 bannerColorHex = "#F59E0B",
-                memberCount = 890L,
+                memberCount = 0L,
                 category = "Lifestyle"
             ),
             Community(
@@ -774,7 +934,7 @@ class InstaSquadRepository(
                 description = "Seasonal discussions, cosplay & anime art",
                 iconEmoji = "🌸",
                 bannerColorHex = "#F43F5E",
-                memberCount = 2100L,
+                memberCount = 0L,
                 category = "Entertainment"
             ),
             Community(
@@ -784,7 +944,7 @@ class InstaSquadRepository(
                 description = "Casual conversation, spontaneous thoughts & vibe check",
                 iconEmoji = "☕",
                 bannerColorHex = "#6366F1",
-                memberCount = 5120L,
+                memberCount = 0L,
                 category = "Community"
             )
         )

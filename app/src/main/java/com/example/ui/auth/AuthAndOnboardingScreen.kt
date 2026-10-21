@@ -38,6 +38,8 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
@@ -131,7 +133,7 @@ fun AuthAndOnboardingScreen(
             )
 
             if (!isSignedIn) {
-                // Frosted Glass Authentication Card with Email Login & "Login via username" hyperlink
+                // Frosted Glass Authentication Card with Google Sign-In
                 GlassSignInCard(
                     errorMessage = errorMessage,
                     onAuthSuccess = {
@@ -139,12 +141,7 @@ fun AuthAndOnboardingScreen(
                         onAuthSuccess()
                         onboardingStep = 1
                     },
-                    onAuthError = { err -> errorMessage = err },
-                    onUsernameLoginMode = { prefillUsername ->
-                        username = prefillUsername
-                        onAuthSuccess()
-                        onboardingStep = 2
-                    }
+                    onAuthError = { err -> errorMessage = err }
                 )
             } else if (onboardingStep == 1) {
                 // Step 1: Sleek Frosted Onboarding Walkthrough
@@ -188,17 +185,11 @@ fun AuthAndOnboardingScreen(
 private fun GlassSignInCard(
     errorMessage: String?,
     onAuthSuccess: () -> Unit,
-    onAuthError: (String) -> Unit,
-    onUsernameLoginMode: (String) -> Unit
+    onAuthError: (String) -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var isLoading by remember { mutableStateOf(false) }
-
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var isUsernameLoginMode by remember { mutableStateOf(false) }
-    var inputUsername by remember { mutableStateOf("") }
 
     GlassCard(
         modifier = Modifier.fillMaxWidth(),
@@ -209,204 +200,46 @@ private fun GlassSignInCard(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = if (isUsernameLoginMode) "Log in via Username" else "Sign In to Loopin",
-                fontSize = 20.sp,
+                text = "Sign In to Loopin",
+                fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
             )
 
             Text(
-                text = if (isUsernameLoginMode)
-                    "Enter your Loopin username to access your squad room."
-                else
-                    "Frosted communication rooms, stories, instants & music notes.",
+                text = "Liquid frosted communication rooms, stories, instants & music notes.",
                 fontSize = 13.sp,
                 color = TextSecondary,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 4.dp, bottom = 20.dp)
+                modifier = Modifier.padding(top = 6.dp, bottom = 24.dp)
             )
 
-            if (!isUsernameLoginMode) {
-                // Custom Email Login fields
-                GlassTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    label = "Email address",
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Email,
-                            contentDescription = null,
-                            tint = TextSecondary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                GlassTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = "Password",
-                    isPassword = true,
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = null,
-                            tint = TextSecondary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Custom Email Login Action Button
-                GlassButton(
-                    onClick = {
-                        val trimmedEmail = email.trim()
-                        val trimmedPass = password.trim()
-                        if (trimmedEmail.contains("@") && trimmedPass.length >= 6) {
-                            isLoading = true
-                            scope.launch {
-                                try {
-                                    Firebase.auth.signInWithEmailAndPassword(trimmedEmail, trimmedPass).await()
-                                    isLoading = false
-                                    onAuthSuccess()
-                                } catch (signInErr: Exception) {
-                                    try {
-                                        Firebase.auth.createUserWithEmailAndPassword(trimmedEmail, trimmedPass).await()
-                                        isLoading = false
-                                        onAuthSuccess()
-                                    } catch (createErr: Exception) {
-                                        isLoading = false
-                                        onAuthError(createErr.localizedMessage ?: signInErr.localizedMessage ?: "Authentication failed")
-                                    }
-                                }
-                            }
-                        } else if (!trimmedEmail.contains("@")) {
-                            onAuthError("Please enter a valid email address (e.g. user@domain.com)")
-                        } else {
-                            onAuthError("Password must be at least 6 characters")
-                        }
-                    },
-                    text = "Sign In with Email",
-                    isPrimary = true,
-                    isLoading = isLoading,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("email_login_button")
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Google Sign In option
-                GlassButton(
-                    onClick = {
-                        isLoading = true
-                        handleGoogleSignIn(
-                            context = context,
-                            scope = scope,
-                            onSuccess = {
-                                isLoading = false
-                                onAuthSuccess()
-                            },
-                            onError = { err ->
-                                isLoading = false
-                                onAuthError(err)
-                            },
-                            onCancelled = { isLoading = false }
-                        )
-                    },
-                    text = "Continue with Google",
-                    isPrimary = false,
-                    enabled = !isLoading,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("google_signin_button")
-                )
-
-                Spacer(modifier = Modifier.height(18.dp))
-
-                // Tiny hyperlink below: "Login via username"
-                Text(
-                    text = "Login via username",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = LoopinIrisGlow,
-                    textDecoration = TextDecoration.Underline,
-                    modifier = Modifier
-                        .clickable { isUsernameLoginMode = true }
-                        .padding(4.dp)
-                        .testTag("login_via_username_hyperlink")
-                )
-            } else {
-                // Username Fast Login Form
-                GlassTextField(
-                    value = inputUsername,
-                    onValueChange = { inputUsername = it },
-                    label = "Username (e.g. alex)",
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = null,
-                            tint = TextSecondary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                GlassButton(
-                    onClick = {
-                        val uName = inputUsername.trim().lowercase()
-                        if (uName.length >= 2) {
-                            isLoading = true
-                            val syntheticEmail = "$uName@loopin.app"
-                            val syntheticPass = "LoopinPass@$uName"
-                            scope.launch {
-                                try {
-                                    Firebase.auth.signInWithEmailAndPassword(syntheticEmail, syntheticPass).await()
-                                    isLoading = false
-                                    onUsernameLoginMode(uName)
-                                } catch (_: Exception) {
-                                    try {
-                                        Firebase.auth.createUserWithEmailAndPassword(syntheticEmail, syntheticPass).await()
-                                        isLoading = false
-                                        onUsernameLoginMode(uName)
-                                    } catch (err: Exception) {
-                                        isLoading = false
-                                        onAuthError(err.localizedMessage ?: "Failed to log in with username")
-                                    }
-                                }
-                            }
-                        } else {
-                            onAuthError("Please enter a username (at least 2 characters)")
-                        }
-                    },
-                    text = "Enter via Username",
-                    isPrimary = true,
-                    isLoading = isLoading,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("username_login_submit_button")
-                )
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Text(
-                    text = "Back to Email Login",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = LoopinIrisGlow,
-                    textDecoration = TextDecoration.Underline,
-                    modifier = Modifier
-                        .clickable { isUsernameLoginMode = false }
-                        .padding(4.dp)
-                        .testTag("login_via_email_hyperlink")
-                )
-            }
+            // Prominent Google Sign-In Button
+            GlassButton(
+                onClick = {
+                    isLoading = true
+                    handleGoogleSignIn(
+                        context = context,
+                        scope = scope,
+                        onSuccess = {
+                            isLoading = false
+                            onAuthSuccess()
+                        },
+                        onError = { err ->
+                            isLoading = false
+                            onAuthError(err)
+                        },
+                        onCancelled = { isLoading = false }
+                    )
+                },
+                text = "Sign in with Google",
+                leadingIcon = Icons.Default.Person,
+                isPrimary = true,
+                isLoading = isLoading,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("google_signin_button")
+            )
 
             if (!errorMessage.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(14.dp))
@@ -439,8 +272,8 @@ private fun GlassOnboardingTutorialCard(
 
     val tutorials = listOf(
         Triple(
-            "Squad Glass Rooms",
-            "Enter a shared Squad ID. You and everyone in your squad get bundled directly into private communication rooms and group DMs.",
+            "Open Communities",
+            "Explore open community hubs for technology, music, gaming, and creative arts. Post, comment, and connect freely without limits.",
             Icons.Default.Group
         ),
         Triple(
@@ -606,33 +439,15 @@ private fun GlassProfileSetupCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Avatar Preview Circle
-            Box(
-                modifier = Modifier
-                    .size(76.dp)
-                    .clip(CircleShape)
-                    .background(Color(0x18FFFFFF))
-                    .border(2.dp, FrostedStoryRingGradient, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                if (selectedAvatar.isNotBlank()) {
-                    AsyncImage(
-                        model = selectedAvatar,
-                        contentDescription = "Avatar",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Plain User Icon",
-                        tint = LoopinSilver,
-                        modifier = Modifier.size(44.dp)
-                    )
-                }
-            }
+            // Avatar Preview Circle using LoopinAvatar matching attached silhouette image
+            com.example.ui.components.LoopinAvatar(
+                avatarUrl = selectedAvatar,
+                size = 80.dp,
+                borderWidth = 2.dp,
+                borderBrush = FrostedStoryRingGradient
+            )
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -646,14 +461,16 @@ private fun GlassProfileSetupCard(
                             )
                         )
                     },
-                    text = "Gallery 🖼️",
+                    text = "Upload",
+                    leadingIcon = Icons.Default.PhotoLibrary,
                     isPrimary = false,
                     modifier = Modifier.testTag("onboard_avatar_gallery_button")
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 GlassButton(
                     onClick = { cameraLauncher.launch(null) },
-                    text = "Camera 📷",
+                    text = "Camera",
+                    leadingIcon = Icons.Default.PhotoCamera,
                     isPrimary = false,
                     modifier = Modifier.testTag("onboard_avatar_camera_button")
                 )
@@ -661,7 +478,8 @@ private fun GlassProfileSetupCard(
                     Spacer(modifier = Modifier.width(8.dp))
                     GlassButton(
                         onClick = { onSelectAvatar("") },
-                        text = "Plain Icon 👤",
+                        text = "Remove",
+                        leadingIcon = Icons.Default.Delete,
                         isPrimary = false,
                         modifier = Modifier.testTag("onboard_avatar_plain_button")
                     )
@@ -688,41 +506,12 @@ private fun GlassProfileSetupCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Squad ID Field
-            Column(modifier = Modifier.fillMaxWidth()) {
-                GlassTextField(
-                    value = squadId,
-                    onValueChange = { onSquadIdChange(it.uppercase()) },
-                    label = "Squad ID (e.g. ALPHA, STUDIO, CAMPUS)",
-                    modifier = Modifier.testTag("squad_id_input")
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    POPULAR_SQUADS.take(4).forEach { tag ->
-                        val isSelected = squadId.equals(tag, ignoreCase = true)
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (isSelected) Color(0x337E74F1) else Color(0x14FFFFFF))
-                                .border(1.dp, if (isSelected) LoopinIrisGlow else GlassBorder, RoundedCornerShape(8.dp))
-                                .clickable { onSquadIdChange(tag) }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = "#$tag",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isSelected) LoopinIrisGlow else TextSecondary
-                            )
-                        }
-                    }
-                }
-            }
+            Text(
+                text = "Choose a unique username (@username). Nobody else can share this handle.",
+                fontSize = 11.sp,
+                color = LoopinIrisGlow,
+                modifier = Modifier.padding(start = 4.dp)
+            )
 
             Spacer(modifier = Modifier.height(10.dp))
 

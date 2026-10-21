@@ -1,0 +1,26 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="100dp"
+    android:height="100dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <!-- Circular neutral grey background matching istock avatar -->
+    <path
+        android:fillColor="#9CA3AF"
+        android:pathData="M50,50m-50,0a50,50 0,1 1,100 0a50,50 0,1 1,-100 0" />
+
+    <!-- Head silhouette in pure white -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50,38m-17.5,0a17.5,17.5 0,1 1,35 0a17.5,17.5 0,1 1,-35 0" />
+
+    <!-- Torso and shoulders silhouette in pure white -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50,62
+            C41.5,62 34,66.5 28.5,73.5
+            C23.5,80 18.5,88.5 17.5,95
+            C26,101 37.5,103 50,103
+            C62.5,103 74,101 82.5,95
+            C81.5,88.5 76.5,80 71.5,73.5
+            C66,66.5 58.5,62 50,62 Z" />
+</vector>

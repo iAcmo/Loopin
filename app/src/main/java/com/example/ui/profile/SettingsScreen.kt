@@ -24,26 +24,22 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.ExitToApp
-import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PersonSearch
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
@@ -72,7 +68,6 @@ import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import coil.compose.AsyncImage
 import com.example.data.model.UserProfile
-import com.example.ui.auth.POPULAR_SQUADS
 import com.example.ui.components.GlassButton
 import com.example.ui.components.GlassCard
 import com.example.ui.components.GlassTextField
@@ -100,8 +95,8 @@ fun SettingsScreen(
     userProfile: UserProfile?,
     isDarkTheme: Boolean,
     onSaveProfile: (displayName: String, bio: String, username: String, avatarUrl: String, isPublicDirectory: Boolean, isPrivate: Boolean) -> Unit,
-    onToggleOnlineStatus: (Boolean) -> Unit,
-    onUpdateSquad: (String) -> Unit,
+    onToggleOnlineStatus: (Boolean) -> Unit = {},
+    onToggleBlock: (String) -> Unit = {},
     onToggleTheme: (Boolean) -> Unit,
     onSignOut: () -> Unit,
     onBack: () -> Unit
@@ -116,12 +111,10 @@ fun SettingsScreen(
     var username by remember(userProfile) { mutableStateOf(userProfile?.username ?: "") }
     var bio by remember(userProfile) { mutableStateOf(userProfile?.bio ?: "") }
     var avatarUrl by remember(userProfile) { mutableStateOf(userProfile?.avatarUrl ?: "") }
-    var isPublicDirectory by remember(userProfile) { mutableStateOf(userProfile?.isPublicDirectory ?: true) }
     var isPrivate by remember(userProfile) { mutableStateOf(userProfile?.isPrivate ?: false) }
-    var isOnline by remember(userProfile) { mutableStateOf(userProfile?.isOnline ?: true) }
-    var selectedSquadId by remember(userProfile) { mutableStateOf(userProfile?.squadId ?: "ALPHA") }
+    var isPublicDirectory by remember(userProfile) { mutableStateOf(userProfile?.isPublicDirectory ?: true) }
+    var usernameError by remember { mutableStateOf<String?>(null) }
 
-    // Photo picker launcher (Zero-permission Google Play compliant)
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
@@ -130,7 +123,6 @@ fun SettingsScreen(
         }
     }
 
-    // Camera launcher
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicturePreview()
     ) { bitmap: Bitmap? ->
@@ -176,15 +168,28 @@ fun SettingsScreen(
                 }
 
                 Text(
-                    text = "Profile & Settings",
-                    fontSize = 18.sp,
+                    text = "Profile & Account Settings",
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
                     color = if (isDark) TextPrimary else Color(0xFF141728)
                 )
 
                 IconButton(
                     onClick = {
-                        onSaveProfile(displayName, bio, username, avatarUrl, isPublicDirectory)
+                        val clean = username.lowercase().trim()
+                        if (clean.length < 3) {
+                            usernameError = "Username must be at least 3 characters"
+                            return@IconButton
+                        }
+                        usernameError = null
+                        onSaveProfile(
+                            displayName.trim(),
+                            bio.trim(),
+                            clean,
+                            avatarUrl,
+                            isPublicDirectory,
+                            isPrivate
+                        )
                         onBack()
                     },
                     modifier = Modifier.testTag("settings_save_button")
@@ -200,66 +205,33 @@ fun SettingsScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f)
                     .widthIn(max = 640.dp)
                     .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // Section 1: Profile Avatar with Camera, Gallery & Plain User Icon option
+                // Section 1: Avatar Edit
                 item {
-                    GlassCard(
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+                    GlassCard(modifier = Modifier.fillMaxWidth()) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(18.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text(
-                                text = "Profile Picture",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isDark) TextPrimary else Color(0xFF141728),
-                                modifier = Modifier.align(Alignment.Start)
+                            com.example.ui.components.LoopinAvatar(
+                                avatarUrl = avatarUrl,
+                                size = 92.dp,
+                                borderWidth = 2.5.dp,
+                                borderBrush = FrostedStoryRingGradient
                             )
+
                             Spacer(modifier = Modifier.height(14.dp))
 
-                            // Avatar preview
-                            Box(
-                                modifier = Modifier
-                                    .size(92.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0x1AFFFFFF))
-                                    .border(2.dp, FrostedStoryRingGradient, CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (avatarUrl.isNotBlank()) {
-                                    AsyncImage(
-                                        model = avatarUrl,
-                                        contentDescription = "Profile Picture",
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                } else {
-                                    // Plain user icon as requested
-                                    Icon(
-                                        imageVector = Icons.Default.Person,
-                                        contentDescription = "Plain User Icon",
-                                        tint = if (isDark) LoopinSilver else Color(0xFF5B6178),
-                                        modifier = Modifier.size(52.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            // Action buttons: Pick from device, Click photo, or Remove picture
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Center
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                OutlinedButton(
+                                GlassButton(
                                     onClick = {
                                         photoPickerLauncher.launch(
                                             androidx.activity.result.PickVisualMediaRequest(
@@ -267,59 +239,43 @@ fun SettingsScreen(
                                             )
                                         )
                                     },
-                                    shape = RoundedCornerShape(12.dp),
-                                    modifier = Modifier.testTag("avatar_pick_gallery_button")
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.PhotoLibrary,
-                                        contentDescription = null,
-                                        tint = LoopinIrisGlow,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Gallery", fontSize = 12.sp, color = if (isDark) TextPrimary else Color(0xFF141728))
-                                }
+                                    text = "Upload",
+                                    leadingIcon = Icons.Default.PhotoLibrary,
+                                    isPrimary = false,
+                                    modifier = Modifier.height(36.dp)
+                                )
 
-                                Spacer(modifier = Modifier.width(8.dp))
-
-                                OutlinedButton(
+                                GlassButton(
                                     onClick = { cameraLauncher.launch(null) },
-                                    shape = RoundedCornerShape(12.dp),
-                                    modifier = Modifier.testTag("avatar_take_camera_button")
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.PhotoCamera,
-                                        contentDescription = null,
-                                        tint = LoopinIrisGlow,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Camera", fontSize = 12.sp, color = if (isDark) TextPrimary else Color(0xFF141728))
-                                }
+                                    text = "Camera",
+                                    leadingIcon = Icons.Default.PhotoCamera,
+                                    isPrimary = false,
+                                    modifier = Modifier.height(36.dp)
+                                )
 
                                 if (avatarUrl.isNotBlank()) {
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    OutlinedButton(
+                                    GlassButton(
                                         onClick = { avatarUrl = "" },
-                                        shape = RoundedCornerShape(12.dp),
-                                        modifier = Modifier.testTag("avatar_remove_button")
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.DeleteOutline,
-                                            contentDescription = null,
-                                            tint = LoopinLikeRed,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Remove", fontSize = 12.sp, color = LoopinLikeRed)
-                                    }
+                                        text = "Remove",
+                                        leadingIcon = Icons.Default.Delete,
+                                        isPrimary = false,
+                                        modifier = Modifier.height(36.dp)
+                                    )
                                 }
                             }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text(
+                                text = if (avatarUrl.isBlank()) "Default profile picture active" else "Custom photo set. Tap Remove to revert to default.",
+                                fontSize = 11.sp,
+                                color = TextMuted
+                            )
                         }
                     }
                 }
 
-                // Section 2: Edit Name, Username, Bio
+                // Section 2: Profile Info Fields (Display Name, Unique Username, Bio)
                 item {
                     GlassCard(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(18.dp)) {
@@ -342,9 +298,28 @@ fun SettingsScreen(
 
                             GlassTextField(
                                 value = username,
-                                onValueChange = { username = it.filter { char -> char.isLetterOrDigit() || char == '_' } },
-                                label = "Username (@)",
+                                onValueChange = {
+                                    username = it.lowercase().trim().replace(" ", "_")
+                                    usernameError = null
+                                },
+                                label = "Unique Username (@username)",
                                 modifier = Modifier.testTag("settings_username_input")
+                            )
+
+                            usernameError?.let { err ->
+                                Text(
+                                    text = err,
+                                    fontSize = 11.sp,
+                                    color = LoopinLikeRed,
+                                    modifier = Modifier.padding(top = 4.dp, start = 4.dp)
+                                )
+                            }
+
+                            Text(
+                                text = "Usernames are strictly unique across all Loopin members.",
+                                fontSize = 11.sp,
+                                color = TextMuted,
+                                modifier = Modifier.padding(top = 4.dp, start = 4.dp)
                             )
 
                             Spacer(modifier = Modifier.height(10.dp))
@@ -352,15 +327,15 @@ fun SettingsScreen(
                             GlassTextField(
                                 value = bio,
                                 onValueChange = { bio = it },
-                                label = "Bio",
+                                label = "Bio / Status",
                                 singleLine = false,
-                                modifier = Modifier.testTag("settings_bio_input")
+                                modifier = Modifier.height(84.dp).testTag("settings_bio_input")
                             )
                         }
                     }
                 }
 
-                // Section 3: Publicbase Visibility Setting (User requested)
+                // Section 3: Privacy Control (Public vs Private Account)
                 item {
                     GlassCard(modifier = Modifier.fillMaxWidth()) {
                         Row(
@@ -378,89 +353,28 @@ fun SettingsScreen(
                                     modifier = Modifier
                                         .size(40.dp)
                                         .clip(CircleShape)
-                                        .background(if (isPublicDirectory) Color(0x227E74F1) else Color(0x18FFFFFF)),
+                                        .background(if (isPrivate) Color(0x337E74F1) else Color(0x18FFFFFF)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        imageVector = if (isPublicDirectory) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                        imageVector = if (isPrivate) Icons.Default.Lock else Icons.Default.Visibility,
                                         contentDescription = null,
-                                        tint = if (isPublicDirectory) LoopinIrisGlow else TextMuted
+                                        tint = if (isPrivate) LoopinIrisGlow else TextSecondary
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
                                     Text(
-                                        text = "Publicbase Discovery",
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isDark) TextPrimary else Color(0xFF141728)
-                                    )
-                                    Text(
-                                        text = if (isPublicDirectory)
-                                            "Visible in public directory & pencil chat search"
-                                        else
-                                            "Hidden from publicbase directory (private)",
-                                        fontSize = 11.sp,
-                                        color = if (isDark) TextSecondary else Color(0xFF5B6178)
-                                    )
-                                }
-                            }
-
-                            Switch(
-                                checked = isPublicDirectory,
-                                onCheckedChange = { isPublicDirectory = it },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color.White,
-                                    checkedTrackColor = LoopinIris,
-                                    uncheckedThumbColor = Color.LightGray,
-                                    uncheckedTrackColor = Color(0x33FFFFFF)
-                                ),
-                                modifier = Modifier.testTag("toggle_publicbase_switch")
-                            )
-                        }
-                    }
-                }
-
-                // Section 3b: Account Privacy (Private or Public Account)
-                item {
-                    GlassCard(modifier = Modifier.fillMaxWidth()) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(18.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(
-                                modifier = Modifier.weight(1f),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(CircleShape)
-                                        .background(if (isPrivate) Color(0x227E74F1) else Color(0x18FFFFFF)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = if (isPrivate) Icons.Default.Lock else Icons.Default.LockOpen,
-                                        contentDescription = null,
-                                        tint = if (isPrivate) LoopinIrisGlow else TextMuted
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column {
-                                    Text(
-                                        text = "Private Account",
+                                        text = if (isPrivate) "Private Account" else "Public Account",
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = if (isDark) TextPrimary else Color(0xFF141728)
                                     )
                                     Text(
                                         text = if (isPrivate)
-                                            "Only approved followers can view your posts and full profile"
+                                            "Only approved followers can see your posts and stories"
                                         else
-                                            "Anyone can view your posts and profile",
+                                            "Anyone on Loopin can view your posts and profile",
                                         fontSize = 11.sp,
                                         color = if (isDark) TextSecondary else Color(0xFF5B6178)
                                     )
@@ -476,13 +390,13 @@ fun SettingsScreen(
                                     uncheckedThumbColor = Color.LightGray,
                                     uncheckedTrackColor = Color(0x33FFFFFF)
                                 ),
-                                modifier = Modifier.testTag("toggle_account_privacy_switch")
+                                modifier = Modifier.testTag("toggle_private_account_switch")
                             )
                         }
                     }
                 }
 
-                // Section 4: Functional Light & Dark Theme
+                // Section 4: Interface Theme (Light vs Dark)
                 item {
                     GlassCard(modifier = Modifier.fillMaxWidth()) {
                         Row(
@@ -509,13 +423,13 @@ fun SettingsScreen(
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
                                     Text(
-                                        text = "Interface Appearance",
+                                        text = "Theme Appearance",
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = if (isDark) TextPrimary else Color(0xFF141728)
                                     )
                                     Text(
-                                        text = if (isDarkTheme) "Dark Liquid Obsidian Theme" else "Light Pearl Crystal Theme",
+                                        text = if (isDarkTheme) "Dark Liquid Obsidian" else "Light Pearl Crystal",
                                         fontSize = 11.sp,
                                         color = if (isDark) TextSecondary else Color(0xFF5B6178)
                                     )
@@ -528,8 +442,8 @@ fun SettingsScreen(
                                 colors = SwitchDefaults.colors(
                                     checkedThumbColor = Color.White,
                                     checkedTrackColor = LoopinIris,
-                                    uncheckedThumbColor = LoopinIris,
-                                    uncheckedTrackColor = Color(0xFFD6DBED)
+                                    uncheckedThumbColor = Color.LightGray,
+                                    uncheckedTrackColor = Color(0x33FFFFFF)
                                 ),
                                 modifier = Modifier.testTag("toggle_dark_theme_switch")
                             )
@@ -537,7 +451,75 @@ fun SettingsScreen(
                     }
                 }
 
-                // Section 5: Automatic Online Presence
+                // Section 5: Blocked Accounts Management
+                item {
+                    val blockedList = userProfile?.blockedUsers ?: emptyList()
+                    GlassCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(18.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Block,
+                                        contentDescription = null,
+                                        tint = LoopinLikeRed,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Blocked Accounts",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isDark) TextPrimary else Color(0xFF141728)
+                                    )
+                                }
+                                Text(
+                                    text = "${blockedList.size} blocked",
+                                    fontSize = 12.sp,
+                                    color = TextMuted
+                                )
+                            }
+
+                            if (blockedList.isEmpty()) {
+                                Text(
+                                    text = "You haven't blocked any accounts.",
+                                    fontSize = 12.sp,
+                                    color = TextSecondary,
+                                    modifier = Modifier.padding(top = 8.dp)
+                                )
+                            } else {
+                                Column(modifier = Modifier.padding(top = 8.dp)) {
+                                    blockedList.forEach { blockedId ->
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = "User ID: ${blockedId.take(12)}...",
+                                                fontSize = 12.sp,
+                                                color = TextSecondary
+                                            )
+                                            GlassButton(
+                                                onClick = { onToggleBlock(blockedId) },
+                                                text = "Unblock",
+                                                isPrimary = false,
+                                                modifier = Modifier.height(28.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Section 6: Online Presence Status
                 item {
                     GlassCard(modifier = Modifier.fillMaxWidth()) {
                         Row(
@@ -564,13 +546,13 @@ fun SettingsScreen(
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
                                     Text(
-                                        text = "Online Presence",
+                                        text = "Active Status",
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = if (isDark) TextPrimary else Color(0xFF141728)
                                     )
                                     Text(
-                                        text = "Automatic (active while app is open)",
+                                        text = "Automatically active while Loopin is running",
                                         fontSize = 11.sp,
                                         color = LoopinOnlineGreen
                                     )
@@ -594,112 +576,69 @@ fun SettingsScreen(
                     }
                 }
 
-                // Section 6: Switch Squad (Moved from profile page to settings as requested)
-                item {
-                    GlassCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(18.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Group,
-                                    contentDescription = null,
-                                    tint = LoopinIrisGlow,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Switch Squad",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isDark) TextPrimary else Color(0xFF141728)
-                                )
-                            }
-                            Text(
-                                text = "Current Squad: #${userProfile?.squadId ?: "ALPHA"}",
-                                fontSize = 12.sp,
-                                color = if (isDark) TextSecondary else Color(0xFF5B6178),
-                                modifier = Modifier.padding(vertical = 6.dp)
-                            )
-
-                            LazyRow(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 8.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                items(POPULAR_SQUADS) { squad ->
-                                    val isSelected = selectedSquadId.equals(squad, ignoreCase = true)
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(if (isSelected) LoopinIris else Color(0x18FFFFFF))
-                                            .border(
-                                                1.dp,
-                                                if (isSelected) LoopinIrisGlow else GlassBorder,
-                                                RoundedCornerShape(12.dp)
-                                            )
-                                            .clickable {
-                                                selectedSquadId = squad
-                                                onUpdateSquad(squad)
-                                            }
-                                            .padding(horizontal = 14.dp, vertical = 8.dp)
-                                    ) {
-                                        Text(
-                                            text = "#$squad",
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (isSelected) Color.White else if (isDark) TextPrimary else Color(0xFF141728)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Section 7: Save & Sign Out Buttons
+                // Section 7: Save Changes Button
                 item {
                     GlassButton(
                         onClick = {
-                            onSaveProfile(displayName, bio, username, avatarUrl, isPublicDirectory, isPrivate)
+                            val clean = username.lowercase().trim()
+                            if (clean.length < 3) {
+                                usernameError = "Username must be at least 3 characters"
+                                return@GlassButton
+                            }
+                            usernameError = null
+                            onSaveProfile(
+                                displayName.trim(),
+                                bio.trim(),
+                                clean,
+                                avatarUrl,
+                                isPublicDirectory,
+                                isPrivate
+                            )
                             onBack()
                         },
-                        text = "Save All Changes",
+                        text = "Save Profile Changes",
                         leadingIcon = Icons.Default.Check,
-                        modifier = Modifier.fillMaxWidth()
+                        isPrimary = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("save_profile_button")
                     )
+                }
 
-                    Spacer(modifier = Modifier.height(10.dp))
-
+                // Section 8: Sign Out
+                item {
                     OutlinedButton(
                         onClick = {
                             scope.launch {
                                 try {
-                                    val credManager = CredentialManager.create(context)
-                                    credManager.clearCredentialState(ClearCredentialStateRequest())
+                                    val credentialManager = CredentialManager.create(context)
+                                    credentialManager.clearCredentialState(ClearCredentialStateRequest())
                                 } catch (_: Exception) {}
                                 Firebase.auth.signOut()
                                 onSignOut()
                             }
                         },
-                        shape = RoundedCornerShape(16.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .testTag("settings_sign_out_button")
+                            .height(46.dp)
+                            .testTag("sign_out_button"),
+                        shape = RoundedCornerShape(16.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, LoopinLikeRed.copy(alpha = 0.5f))
                     ) {
                         Icon(
                             imageVector = Icons.Default.ExitToApp,
-                            contentDescription = null,
+                            contentDescription = "Sign Out",
                             tint = LoopinLikeRed,
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Sign Out",
+                            text = "Log Out of Account",
                             color = LoopinLikeRed,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
                         )
                     }
-
                     Spacer(modifier = Modifier.height(24.dp))
                 }
             }

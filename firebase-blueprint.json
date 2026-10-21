@@ -75,7 +75,10 @@
         "lastMessage": { "type": "string" },
         "lastMessageSender": { "type": "string" },
         "lastMessageTime": { "type": "string", "format": "date-time" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "typingUserIds": { "type": "array" },
+        "typingUsernames": { "type": "array" },
+        "unreadByUserIds": { "type": "array" }
       },
       "required": ["roomId", "squadId", "isSquadRoom", "createdAt"]
     },

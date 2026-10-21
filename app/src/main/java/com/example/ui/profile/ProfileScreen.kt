@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -24,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GridOn
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Divider
@@ -50,6 +52,8 @@ import com.example.ui.components.GlassCard
 import com.example.ui.components.LiquidGlassBackground
 import com.example.ui.theme.FrostedStoryRingGradient
 import com.example.ui.theme.GlassBorder
+import com.example.ui.theme.LocalIsDarkTheme
+import com.example.ui.theme.LoopinIris
 import com.example.ui.theme.LoopinIrisGlow
 import com.example.ui.theme.LoopinOnlineGreen
 import com.example.ui.theme.LoopinSilver
@@ -63,6 +67,7 @@ fun ProfileScreen(
     userPosts: List<Post>,
     onOpenSettings: () -> Unit
 ) {
+    val isDark = LocalIsDarkTheme.current
     LiquidGlassBackground {
         Column(
             modifier = Modifier
@@ -75,9 +80,14 @@ fun ProfileScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(60.dp)
-                    .background(Color(0x18000000))
-                    .border(width = 0.5.dp, color = Color(0x14FFFFFF), shape = RoundedCornerShape(0.dp))
+                    .statusBarsPadding()
+                    .height(58.dp)
+                    .background(if (isDark) Color(0x3308090E) else Color(0xEEFFFFFF))
+                    .border(
+                        width = 0.5.dp,
+                        color = if (isDark) Color(0x18FFFFFF) else Color(0x12000000),
+                        shape = RoundedCornerShape(0.dp)
+                    )
                     .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -86,10 +96,19 @@ fun ProfileScreen(
                     Icon(
                         painter = painterResource(id = R.drawable.ic_loopin_logo),
                         contentDescription = "Loopin Logo",
-                        tint = Color.White,
+                        tint = if (isDark) Color.White else LoopinIris,
                         modifier = Modifier.size(28.dp)
                     )
                     Spacer(modifier = Modifier.width(10.dp))
+                    if (userProfile?.isPrivate == true) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Private Account",
+                            tint = LoopinIrisGlow,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
                     Text(
                         text = userProfile?.username ?: "Profile",
                         fontSize = 19.sp,
@@ -128,33 +147,12 @@ fun ProfileScreen(
                             modifier = Modifier.size(82.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(78.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0x18FFFFFF))
-                                    .border(2.5.dp, FrostedStoryRingGradient, CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                val avatar = userProfile?.avatarUrl ?: ""
-                                if (avatar.isNotBlank()) {
-                                    AsyncImage(
-                                        model = avatar,
-                                        contentDescription = "Profile Avatar",
-                                        modifier = Modifier
-                                            .size(70.dp)
-                                            .clip(CircleShape),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Default.Person,
-                                        contentDescription = "Plain User Icon",
-                                        tint = LoopinSilver,
-                                        modifier = Modifier.size(42.dp)
-                                    )
-                                }
-                            }
+                            com.example.ui.components.LoopinAvatar(
+                                avatarUrl = userProfile?.avatarUrl,
+                                size = 78.dp,
+                                borderWidth = 2.5.dp,
+                                borderBrush = FrostedStoryRingGradient
+                            )
 
                             // Online / Offline Status Dot Badge
                             val isOnline = userProfile?.isOnline ?: true
@@ -170,20 +168,14 @@ fun ProfileScreen(
 
                         Spacer(modifier = Modifier.width(20.dp))
 
-                        // Real User Metrics ONLY (NO FAKE FOLLOWERS)
+                        // Real User Metrics (Posts, Followers, Following)
                         Row(
                             modifier = Modifier.weight(1f),
                             horizontalArrangement = Arrangement.SpaceAround
                         ) {
                             RealStatColumn(count = userPosts.size.toString(), label = "Posts")
-                            RealStatColumn(count = "#${userProfile?.squadId ?: "ALPHA"}", label = "Squad")
-                            val isOnline = userProfile?.isOnline ?: true
-                            RealStatColumn(
-                                count = if (isOnline) "Online" else "Offline",
-                                label = "Status",
-                                isBadge = true,
-                                isOnline = isOnline
-                            )
+                            RealStatColumn(count = (userProfile?.followers?.size ?: 0).toString(), label = "Followers")
+                            RealStatColumn(count = (userProfile?.following?.size ?: 0).toString(), label = "Following")
                         }
                     }
 
@@ -197,7 +189,7 @@ fun ProfileScreen(
                         color = TextPrimary
                     )
                     Text(
-                        text = userProfile?.bio ?: "Loopin squad member",
+                        text = userProfile?.bio ?: "Loopin community member",
                         fontSize = 13.sp,
                         color = TextSecondary,
                         modifier = Modifier.padding(top = 3.dp)

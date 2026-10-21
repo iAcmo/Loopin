@@ -58,20 +58,21 @@ class InstaSquadRepositoryRuleTest : FirestoreEmulatorTestBase() {
     }
 
     @Test
-    fun squadRoom_ensureAndSendMessage_succeeds() = runBlocking {
+    fun directRoom_createAndSendMessage_succeeds() = runBlocking {
         signInTestUser(ALICE_EMAIL)
         val repository = InstaSquadRepository(firestore, auth)
 
         val roomResult = withTimeout(DEFAULT_TIMEOUT_MS) {
-            repository.ensureSquadRoom("ALPHA")
+            repository.createDirectMessageRoom("bob_123", "Bob", "Alice")
         }
         assertTrue(roomResult.isSuccess)
-        val room = roomResult.getOrThrow()
+        val roomId = roomResult.getOrThrow()
+        assertTrue(roomId.isNotEmpty())
 
         val msgResult = withTimeout(DEFAULT_TIMEOUT_MS) {
             repository.sendMessage(
-                roomId = room.roomId,
-                text = "Hey squad ALPHA!",
+                roomId = roomId,
+                text = "Hey Bob!",
                 type = "text",
                 mediaUrl = "",
                 senderName = "Alice",

@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -75,6 +76,7 @@ import com.example.data.model.PostComment
 import com.example.data.model.UserProfile
 import com.example.ui.components.GlassButton
 import com.example.ui.components.GlassCard
+import com.example.ui.components.GlassModalSheet
 import com.example.ui.components.GlassTextField
 import com.example.ui.components.LiquidGlassBackground
 import com.example.ui.theme.GlassBorder
@@ -266,8 +268,8 @@ private fun CommunitiesHubHeader(
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Default.Search,
-                    contentDescription = "Search",
-                    tint = LoopinIrisGlow,
+                    contentDescription = null,
+                    tint = TextSecondary,
                     modifier = Modifier.size(18.dp)
                 )
             },
@@ -347,7 +349,7 @@ private fun CommunityCard(
                             color = TextPrimary
                         )
                         Text(
-                            text = "${community.category} • ${community.memberCount} members",
+                            text = "${community.category} • Open Hub",
                             fontSize = 11.sp,
                             color = LoopinIrisGlow
                         )
@@ -424,7 +426,7 @@ private fun CommunityFeedView(
                         color = TextPrimary
                     )
                     Text(
-                        text = "${community.memberCount} members • Open hub",
+                        text = "${community.category} • Open Squad Hub",
                         fontSize = 11.sp,
                         color = TextSecondary
                     )
@@ -808,7 +810,7 @@ private fun CreateCommunityPostDialog(
     }
 }
 
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CommunityCommentsSheet(
     post: Post,
@@ -820,32 +822,17 @@ private fun CommunityCommentsSheet(
     var commentText by remember { mutableStateOf("") }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    ModalBottomSheet(
+    GlassModalSheet(
         onDismissRequest = onClose,
         sheetState = sheetState,
-        containerColor = Color(0xFF141728),
+        title = "Comments (${comments.size})",
         modifier = Modifier.imePadding()
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(bottom = 16.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Comments (${comments.size})",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-                IconButton(onClick = onClose) {
-                    Icon(imageVector = Icons.Default.Close, contentDescription = "Close", tint = TextSecondary)
-                }
-            }
 
             Spacer(modifier = Modifier.height(8.dp))
 

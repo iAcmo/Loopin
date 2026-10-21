@@ -211,7 +211,7 @@ fun StoryViewer(
                             color = Color.White
                         )
                         Text(
-                            text = "Squad #${story.squadId}",
+                            text = "Story",
                             fontSize = 11.sp,
                             color = LoopinIrisGlow
                         )
