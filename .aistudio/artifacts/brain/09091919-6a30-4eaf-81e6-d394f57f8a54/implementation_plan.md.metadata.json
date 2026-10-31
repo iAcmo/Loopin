@@ -1,6 +1,6 @@
 {
-  "summary":  "Comprehensive implementation plan for the Loopin chat overhaul and Instagram DM feature parity, including voice notes, shared media gallery, 24h/7d/view-once disappearing messages, per-chat themes, nicknames, and migration preparation.",
-  "updatedAt":  "2026-10-21T03:48:06.495893374Z",
+  "summary":  "Implementation plan to switch the Firebase backend to project 'youtube-automation-69420' while preserving all existing Loopin social, direct messaging, feed, notes, and profile features.",
+  "updatedAt":  "2026-10-25T10:12:25.580779299Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

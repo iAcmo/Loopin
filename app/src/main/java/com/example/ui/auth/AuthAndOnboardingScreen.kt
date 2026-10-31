@@ -117,6 +117,26 @@ fun AuthAndOnboardingScreen(
     var bio by remember { mutableStateOf("Connected on Loopin ✨") }
     var selectedAvatar by remember { mutableStateOf("") }
 
+    val currentFirebaseUser = Firebase.auth.currentUser
+    androidx.compose.runtime.LaunchedEffect(isSignedIn, currentFirebaseUser) {
+        if (isSignedIn && onboardingStep == 0) {
+            onboardingStep = 1
+        }
+        if (currentFirebaseUser != null) {
+            if (username.isBlank()) {
+                val emailPrefix = currentFirebaseUser.email?.substringBefore("@")?.replace(".", "_")?.lowercase()
+                val nameClean = currentFirebaseUser.displayName?.replace(" ", "")?.lowercase()
+                username = (emailPrefix ?: nameClean ?: "user").take(20)
+            }
+            if (displayName.isBlank() && !currentFirebaseUser.displayName.isNullOrBlank()) {
+                displayName = currentFirebaseUser.displayName ?: ""
+            }
+            if (selectedAvatar.isBlank() && currentFirebaseUser.photoUrl != null) {
+                selectedAvatar = currentFirebaseUser.photoUrl.toString()
+            }
+        }
+    }
+
     LiquidGlassBackground {
         Column(
             modifier = Modifier
@@ -200,12 +220,11 @@ private fun GlassSignInCard(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Sign In to Loopin",
+                text = "Welcome to Loopin",
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
             )
-
             Text(
                 text = "Liquid frosted communication rooms, stories, instants & music notes.",
                 fontSize = 13.sp,
@@ -241,15 +260,25 @@ private fun GlassSignInCard(
                     .testTag("google_signin_button")
             )
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Your Google account securely authenticates your identity, squad rooms, and authentic photo drops.",
+                fontSize = 11.sp,
+                color = TextSecondary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+
             if (!errorMessage.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
                         .background(Color(0x22FF4B6E))
                         .border(1.dp, Color(0x55FF4B6E), RoundedCornerShape(12.dp))
-                        .padding(10.dp)
+                        .padding(12.dp)
                 ) {
                     Text(
                         text = errorMessage,
@@ -546,6 +575,59 @@ private fun GlassProfileSetupCard(
     }
 }
 
+private fun Context.findActivity(): Activity? {
+    var ctx = this
+    while (ctx is android.content.ContextWrapper) {
+        if (ctx is Activity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
+}
+
+fun attemptAutoSignIn(
+    context: Context,
+    scope: CoroutineScope,
+    onSuccess: () -> Unit,
+    onUnauthenticated: () -> Unit
+) {
+    if (Firebase.auth.currentUser != null) {
+        onSuccess()
+        return
+    }
+    val clientId = try {
+        context.getString(R.string.default_web_client_id)
+    } catch (_: Exception) {
+        onUnauthenticated()
+        return
+    }
+
+    val credentialManager = CredentialManager.create(context)
+    val googleIdOption = com.google.android.libraries.identity.googleid.GetGoogleIdOption.Builder()
+        .setFilterByAuthorizedAccounts(true)
+        .setServerClientId(clientId)
+        .setAutoSelectEnabled(true)
+        .build()
+
+    val request = GetCredentialRequest.Builder().addCredentialOption(googleIdOption).build()
+
+    scope.launch {
+        try {
+            val result = credentialManager.getCredential(context, request)
+            val credential = result.credential
+            if (credential is CustomCredential && credential.type == TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                val googleIdToken = GoogleIdTokenCredential.createFrom(credential.data).idToken
+                val authCredential = GoogleAuthProvider.getCredential(googleIdToken, null)
+                Firebase.auth.signInWithCredential(authCredential).await()
+                onSuccess()
+            } else {
+                onUnauthenticated()
+            }
+        } catch (_: Exception) {
+            onUnauthenticated()
+        }
+    }
+}
+
 private fun handleGoogleSignIn(
     context: Context,
     scope: CoroutineScope,
@@ -560,13 +642,19 @@ private fun handleGoogleSignIn(
         return
     }
 
+    val activity = context.findActivity()
+    if (activity == null) {
+        onError("Cannot initialize Sign-In: Activity context is not available.")
+        return
+    }
+
     val credentialManager = CredentialManager.create(context)
     val signInOption = GetSignInWithGoogleOption.Builder(serverClientId = clientId).build()
     val request = GetCredentialRequest.Builder().addCredentialOption(signInOption).build()
 
     scope.launch {
         try {
-            val result = credentialManager.getCredential(context as Activity, request)
+            val result = credentialManager.getCredential(activity, request)
             val credential = result.credential
             if (credential is CustomCredential && credential.type == TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
                 val googleIdToken = GoogleIdTokenCredential.createFrom(credential.data).idToken
@@ -581,7 +669,12 @@ private fun handleGoogleSignIn(
             onCancelled()
         } catch (e: Exception) {
             Log.e("Auth", "Google Sign-In failed", e)
-            onError(e.localizedMessage ?: "Sign in failed")
+            val msg = e.localizedMessage ?: "Sign in failed"
+            if (msg.contains("NoCredentialException") || msg.contains("no credentials", ignoreCase = true)) {
+                onError("No Google Account found on this device. Please sign in to a Google account in Android system Settings.")
+            } else {
+                onError(msg)
+            }
         }
     }
 }

@@ -110,7 +110,10 @@ import com.example.ui.components.GlassButton
 import com.example.ui.components.LiquidGlassBackground
 import com.example.ui.components.SpotifyGreen
 import com.example.ui.components.SpotifyTrackPickerDialog
+import com.example.ui.theme.ChatThemeDefinition
+import com.example.ui.theme.ChatThemeRegistry
 import com.example.ui.theme.GlassBorder
+import com.example.ui.theme.LocalIsDarkTheme
 import com.example.ui.theme.GlassStrokeBrush
 import com.example.ui.theme.LoopinIris
 import com.example.ui.theme.LoopinIrisGlow
@@ -191,6 +194,7 @@ fun ChatRoomScreen(
 
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
+    val isDark = LocalIsDarkTheme.current
     val currentUserId = currentUserProfile?.userId ?: ""
     val myUsername = currentUserProfile?.displayName?.ifBlank { currentUserProfile.username } ?: currentUserProfile?.username ?: ""
 
@@ -205,7 +209,8 @@ fun ChatRoomScreen(
         if (otherIndex in room.memberUsernames.indices) {
             room.memberUsernames[otherIndex]
         } else {
-            room.name.ifBlank { "User" }
+            room.memberUsernames.firstOrNull { it != myUsername && it != (currentUserProfile?.username ?: "") }
+                ?: room.name.ifBlank { "User" }
         }
     }
     val otherAvatarUrl = remember(room.memberAvatars, otherUserId) {
@@ -213,6 +218,10 @@ fun ChatRoomScreen(
     }
     val assignedNickname = room.nicknames[otherUserId]
     val effectiveDisplayName = if (!assignedNickname.isNullOrBlank()) assignedNickname else otherUsername
+
+    val chatTheme = remember(room.themeId) {
+        ChatThemeRegistry.getThemeById(room.themeId)
+    }
 
     val otherTypingUsernames = remember(room.typingUserIds, room.typingUsernames, currentUserId, myUsername) {
         val list = mutableListOf<String>()
@@ -348,6 +357,22 @@ fun ChatRoomScreen(
     }
 
     LiquidGlassBackground {
+        if (chatTheme.id != ChatThemeRegistry.IrisGlow.id) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                chatTheme.accentColor.copy(alpha = if (isDark) 0.16f else 0.10f),
+                                chatTheme.glowColor.copy(alpha = if (isDark) 0.08f else 0.04f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -553,6 +578,7 @@ fun ChatRoomScreen(
                         isLastSentByMe = isLastSentByMe,
                         recipientName = if (!room.isGroup) effectiveDisplayName else "",
                         currentUserId = currentUserId,
+                        chatTheme = chatTheme,
                         onImageClick = { fullScreenImageUrl = it },
                         onReactionSelected = { emoji ->
                             onToggleReaction(message.id, message.reactions, emoji)
@@ -720,7 +746,7 @@ fun ChatRoomScreen(
                                     modifier = Modifier
                                         .width(3.dp)
                                         .height(28.dp)
-                                        .background(LoopinIrisGlow, RoundedCornerShape(2.dp))
+                                        .background(chatTheme.accentColor, RoundedCornerShape(2.dp))
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Column {
@@ -959,7 +985,7 @@ fun ChatRoomScreen(
                             modifier = Modifier
                                 .size(42.dp)
                                 .clip(CircleShape)
-                                .background(Brush.linearGradient(listOf(LoopinIris, LoopinIrisGlow)))
+                                .background(chatTheme.bubbleBrush)
                                 .testTag("send_voice_note_button")
                         ) {
                             Icon(
@@ -1093,14 +1119,7 @@ fun ChatRoomScreen(
                                 modifier = Modifier
                                     .size(42.dp)
                                     .clip(CircleShape)
-                                    .background(
-                                        Brush.linearGradient(
-                                            colors = listOf(
-                                                LoopinIris,
-                                                LoopinIrisGlow
-                                            )
-                                        )
-                                    )
+                                    .background(chatTheme.bubbleBrush)
                                     .testTag("send_chat_message_button")
                             ) {
                                 Icon(
@@ -1235,8 +1254,7 @@ fun ChatRoomScreen(
         if (activeActionMessage != null) {
             val targetMsg = activeActionMessage!!
             val isMyMsg = targetMsg.senderId == (currentUserProfile?.userId ?: "")
-            val ageMs = System.currentTimeMillis() - (targetMsg.createdAt?.toDate()?.time ?: System.currentTimeMillis())
-            val canUnsend = isMyMsg && !targetMsg.isUnsent && ageMs <= 30 * 60 * 1000L
+            val canUnsend = isMyMsg && !targetMsg.isUnsent
 
             val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
             ModalBottomSheet(
@@ -1371,7 +1389,7 @@ fun ChatRoomScreen(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 Text("Unsend message", fontSize = 15.sp, color = LoopinLikeRed, fontWeight = FontWeight.SemiBold)
-                                Text("Available for up to 30 min after sending", fontSize = 11.sp, color = TextMuted)
+                                Text("Removes this message for everyone", fontSize = 11.sp, color = TextMuted)
                             }
                         }
                     }
@@ -1635,6 +1653,7 @@ fun FrostedMessageBubble(
     isLastSentByMe: Boolean = false,
     recipientName: String = "",
     currentUserId: String,
+    chatTheme: ChatThemeDefinition = ChatThemeRegistry.IrisGlow,
     onImageClick: (String) -> Unit,
     onReactionSelected: (String) -> Unit,
     onMessageAction: () -> Unit,
@@ -1717,19 +1736,19 @@ fun FrostedMessageBubble(
                             message.isUnsent -> Color(0x14FFFFFF)
                             isFire -> Color(0x40FF6A00)
                             isSparkle -> Color(0x3D9B51E0)
-                            isIrisGlow -> Color(0x4D7E74F1)
-                            isMe -> Color(0x3D7E74F1)
+                            isIrisGlow -> chatTheme.accentColor.copy(alpha = 0.45f)
+                            isMe -> chatTheme.accentColor.copy(alpha = 0.35f)
                             else -> Color(0x18FFFFFF)
                         }
                     )
                     .border(
-                        width = if (isSparkle || isFire || isIrisGlow) 1.5.dp else 1.dp,
+                        width = if (isSparkle || isFire || isIrisGlow || isMe) 1.5.dp else 1.dp,
                         brush = when {
                             message.isUnsent -> Brush.linearGradient(listOf(Color(0x22FFFFFF), Color(0x11FFFFFF)))
                             isFire -> Brush.linearGradient(listOf(Color(0xFFFF9500), Color(0xFFFF3B30)))
-                            isSparkle -> Brush.linearGradient(listOf(Color(0xFFFFD700), LoopinIrisGlow))
-                            isIrisGlow -> Brush.linearGradient(listOf(LoopinIrisGlow, Color(0xFFC7C5FF)))
-                            isMe -> Brush.linearGradient(listOf(Color(0x77A69FFF), Color(0x33A69FFF)))
+                            isSparkle -> Brush.linearGradient(listOf(Color(0xFFFFD700), chatTheme.glowColor))
+                            isIrisGlow -> chatTheme.bubbleBrush
+                            isMe -> chatTheme.bubbleBrush
                             else -> GlassStrokeBrush
                         },
                         shape = RoundedCornerShape(

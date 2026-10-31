@@ -12,7 +12,22 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
+enum class VisualThemeMode(val id: String, val title: String, val description: String) {
+    LIQUID_GLASS(
+        id = "liquid_glass",
+        title = "Liquid Glass",
+        description = "Cosmic translucent frosted glass with pointer highlights & dynamic glows"
+    ),
+    STATIC_COLORS(
+        id = "static_colors",
+        title = "Static Colors",
+        description = "Clean solid Material 3 surfaces with crisp high-contrast borders & opaque cards"
+    )
+}
+
 val LocalIsDarkTheme = compositionLocalOf { true }
+val LocalVisualThemeMode = compositionLocalOf { VisualThemeMode.LIQUID_GLASS }
+val LocalAppAccentColor = compositionLocalOf { LoopinIris }
 
 private val DarkGlassColorScheme = darkColorScheme(
     primary = LoopinIris,
@@ -48,9 +63,45 @@ private val LightGlassColorScheme = lightColorScheme(
     outline = LightGlassBorder
 )
 
+private val DarkStaticColorScheme = darkColorScheme(
+    primary = LoopinIris,
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFF27272A),
+    onPrimaryContainer = Color(0xFFF4F4F5),
+    secondary = Color(0xFFA1A1AA),
+    onSecondary = Color.Black,
+    tertiary = LoopinIrisGlow,
+    background = Color(0xFF18181B),
+    onBackground = Color(0xFFF4F4F5),
+    surface = Color(0xFF27272A),
+    onSurface = Color(0xFFF4F4F5),
+    surfaceVariant = Color(0xFF3F3F46),
+    onSurfaceVariant = Color(0xFFA1A1AA),
+    outline = Color(0xFF52525B)
+)
+
+private val LightStaticColorScheme = lightColorScheme(
+    primary = LoopinIris,
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFEDE9FE),
+    onPrimaryContainer = Color(0xFF18181B),
+    secondary = Color(0xFF71717A),
+    onSecondary = Color.White,
+    tertiary = LoopinIris,
+    background = Color(0xFFFFFFFF),
+    onBackground = Color(0xFF18181B),
+    surface = Color(0xFFF4F4F5),
+    onSurface = Color(0xFF18181B),
+    surfaceVariant = Color(0xFFE4E4E7),
+    onSurfaceVariant = Color(0xFF71717A),
+    outline = Color(0xFFD4D4D8)
+)
+
 @Composable
 fun LoopinTheme(
     darkTheme: Boolean = true,
+    visualThemeMode: VisualThemeMode = VisualThemeMode.LIQUID_GLASS,
+    accentColor: Color = LoopinIris,
     content: @Composable () -> Unit
 ) {
     val view = LocalView.current
@@ -65,9 +116,25 @@ fun LoopinTheme(
         }
     }
 
-    CompositionLocalProvider(LocalIsDarkTheme provides darkTheme) {
+    val baseColorScheme = when {
+        visualThemeMode == VisualThemeMode.STATIC_COLORS && darkTheme -> DarkStaticColorScheme
+        visualThemeMode == VisualThemeMode.STATIC_COLORS && !darkTheme -> LightStaticColorScheme
+        darkTheme -> DarkGlassColorScheme
+        else -> LightGlassColorScheme
+    }
+
+    val dynamicColorScheme = baseColorScheme.copy(
+        primary = accentColor,
+        tertiary = accentColor.copy(alpha = 0.85f)
+    )
+
+    CompositionLocalProvider(
+        LocalIsDarkTheme provides darkTheme,
+        LocalVisualThemeMode provides visualThemeMode,
+        LocalAppAccentColor provides accentColor
+    ) {
         MaterialTheme(
-            colorScheme = if (darkTheme) DarkGlassColorScheme else LightGlassColorScheme,
+            colorScheme = dynamicColorScheme,
             typography = Typography,
             content = content
         )
@@ -77,5 +144,7 @@ fun LoopinTheme(
 @Composable
 fun InstaSquadTheme(
     darkTheme: Boolean = true,
+    visualThemeMode: VisualThemeMode = VisualThemeMode.LIQUID_GLASS,
+    accentColor: Color = LoopinIris,
     content: @Composable () -> Unit
-) = LoopinTheme(darkTheme = darkTheme, content = content)
+) = LoopinTheme(darkTheme = darkTheme, visualThemeMode = visualThemeMode, accentColor = accentColor, content = content)

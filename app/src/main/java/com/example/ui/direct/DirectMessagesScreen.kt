@@ -58,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
@@ -87,6 +88,7 @@ import com.example.ui.theme.LoopinIrisGlow
 import com.example.ui.theme.LoopinLikeRed
 import com.example.ui.theme.LoopinOnlineGreen
 import com.example.ui.theme.LoopinSilver
+import com.example.ui.theme.NoteColorPalette
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
@@ -109,7 +111,8 @@ fun DirectMessagesScreen(
         noteText: String,
         albumCoverUrl: String,
         spotifyUri: String,
-        previewAudioUrl: String
+        previewAudioUrl: String,
+        colorTheme: String
     ) -> Unit,
     onDeleteNote: (noteId: String) -> Unit = {},
     onBack: () -> Unit
@@ -145,77 +148,70 @@ fun DirectMessagesScreen(
                     .align(Alignment.TopCenter)
                     .statusBarsPadding()
             ) {
-                // Top Bar
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(58.dp)
-                        .background(if (isDark) Color(0x3308090E) else Color(0xEEFFFFFF))
-                        .border(
-                            width = 0.5.dp,
-                            color = if (isDark) Color(0x18FFFFFF) else Color(0x12000000),
-                            shape = RoundedCornerShape(0.dp)
-                        )
-                        .padding(horizontal = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                // Liquid Glass Header with Fresnel, Chromatic Aberration, z-radius, blur & refraction
+                com.example.ui.components.LiquidGlassHeader(
+                    zRadius = 12.dp
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(
-                            onClick = onBack,
-                            modifier = Modifier.testTag("dm_back_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = TextPrimary
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(4.dp))
-
-                        Column {
-                            Text(
-                                text = "Messages",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary
-                            )
-                            userProfile?.username?.let {
-                                Text(
-                                    text = "@$it",
-                                    fontSize = 11.sp,
-                                    color = LoopinIrisGlow
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(
+                                onClick = onBack,
+                                modifier = Modifier.testTag("dm_back_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = if (isDark) TextPrimary else Color(0xFF10151C)
                                 )
                             }
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Column {
+                                Text(
+                                    text = "Messages",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isDark) TextPrimary else Color(0xFF10151C)
+                                )
+                                userProfile?.username?.let {
+                                    Text(
+                                        text = "@$it",
+                                        fontSize = 11.sp,
+                                        color = com.example.ui.theme.LocalAppAccentColor.current
+                                    )
+                                }
+                            }
                         }
-                    }
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Make Group button
-                        IconButton(
-                            onClick = { showMakeGroupDialog = true },
-                            modifier = Modifier.testTag("make_group_header_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.GroupAdd,
-                                contentDescription = "Make Group",
-                                tint = LoopinIrisGlow,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            // Make Group button
+                            IconButton(
+                                onClick = { showMakeGroupDialog = true },
+                                modifier = Modifier.testTag("make_group_header_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.GroupAdd,
+                                    contentDescription = "Make Group",
+                                    tint = com.example.ui.theme.LocalAppAccentColor.current,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
 
-                        // New Chat button
-                        IconButton(
-                            onClick = { showStartChatDialog = true },
-                            modifier = Modifier.testTag("new_chat_header_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = "New Direct Message",
-                                tint = if (isDark) TextPrimary else Color(0xFF141728),
-                                modifier = Modifier.size(20.dp)
-                            )
+                            // New Chat button
+                            IconButton(
+                                onClick = { showStartChatDialog = true },
+                                modifier = Modifier.testTag("new_chat_header_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "New Direct Message",
+                                    tint = if (isDark) TextPrimary else Color(0xFF141728),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -399,25 +395,18 @@ fun DirectMessagesScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.MusicNote,
-                                        contentDescription = null,
-                                        tint = SpotifyGreen,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = "Spotify Music Notes",
-                                        fontSize = 13.sp,
+                                        text = "Notes",
+                                        fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = if (isDark) TextPrimary else Color(0xFF141728)
                                     )
                                 }
 
                                 Text(
-                                    text = "Tap to listen 🎵",
+                                    text = "24h thoughts",
                                     fontSize = 11.sp,
-                                    color = SpotifyGreen
+                                    color = TextSecondary
                                 )
                             }
 
@@ -612,12 +601,12 @@ fun DirectMessagesScreen(
                         showStartChatDialog = true
                     }
                 },
-                containerColor = LoopinIris,
+                containerColor = com.example.ui.theme.LocalAppAccentColor.current,
                 contentColor = Color.White,
                 shape = CircleShape,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 20.dp, bottom = 85.dp)
+                    .padding(end = 20.dp, bottom = 90.dp)
                     .size(54.dp)
                     .testTag("dm_fab_button")
             ) {
@@ -629,14 +618,22 @@ fun DirectMessagesScreen(
             }
         }
 
-        // Leave Music Note Dialog
+        // Instagram Note Creation Dialog
         if (showLeaveNoteDialog) {
-            LeaveMusicNoteDialog(
+            NoteCreationDialog(
+                userProfile = userProfile,
+                existingNote = myNote,
                 onDismiss = { showLeaveNoteDialog = false },
-                onSave = { song, artist, text, cover, uri, audio ->
-                    onSaveNote(song, artist, text, cover, uri, audio)
+                onSave = { song, artist, text, cover, uri, audio, colorTheme ->
+                    onSaveNote(song, artist, text, cover, uri, audio, colorTheme)
                     showLeaveNoteDialog = false
-                }
+                },
+                onDelete = if (myNote != null) {
+                    {
+                        onDeleteNote(myNote.id)
+                        showLeaveNoteDialog = false
+                    }
+                } else null
             )
         }
 
@@ -645,7 +642,7 @@ fun DirectMessagesScreen(
             AlertDialog(
                 onDismissRequest = { showMyNoteOptionsDialog = false },
                 containerColor = Color(0xFF141728),
-                title = { Text("Your Spotify Note", color = TextPrimary) },
+                title = { Text("Your Note", color = TextPrimary) },
                 text = {
                     Column {
                         myNote?.let {
@@ -655,12 +652,14 @@ fun DirectMessagesScreen(
                                 fontWeight = FontWeight.SemiBold,
                                 color = LoopinIrisGlow
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Track: ${it.songTitle} • ${it.artist}",
-                                fontSize = 12.sp,
-                                color = SpotifyGreen
-                            )
+                            if (it.songTitle.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "🎵 ${it.songTitle} • ${it.artist}",
+                                    fontSize = 12.sp,
+                                    color = SpotifyGreen
+                                )
+                            }
                         }
                     }
                 },
@@ -670,7 +669,7 @@ fun DirectMessagesScreen(
                             showMyNoteOptionsDialog = false
                             showLeaveNoteDialog = true
                         },
-                        text = "Change Note",
+                        text = "Leave a new note",
                         isPrimary = true
                     )
                 },
@@ -680,7 +679,7 @@ fun DirectMessagesScreen(
                             myNote?.let { onDeleteNote(it.id) }
                             showMyNoteOptionsDialog = false
                         },
-                        text = "Delete",
+                        text = "Delete note",
                         isPrimary = false
                     )
                 }
@@ -774,15 +773,16 @@ fun FrostedDirectChatItem(
     val isUnread = room.unreadByUserIds.contains(currentUserId)
     val isSentByMe = currentUsername.isNotBlank() && (room.lastMessageSender == currentUsername)
 
-    val otherUserId = room.memberIds.firstOrNull { it != currentUserId } ?: ""
+    val otherUserId = room.memberIds.firstOrNull { it.isNotBlank() && it != currentUserId } ?: ""
     val otherIndex = room.memberIds.indexOf(otherUserId)
     val otherUsername = if (otherIndex in room.memberUsernames.indices) {
         room.memberUsernames[otherIndex]
     } else {
-        room.name.ifBlank { "User" }
+        room.memberUsernames.firstOrNull { it.isNotBlank() && it != currentUsername }
+            ?: (if (!room.name.contains(",")) room.name.ifBlank { "Direct Chat" } else room.name.split(",").firstOrNull { it.trim() != currentUsername }?.trim() ?: "User")
     }
     val otherAvatarUrl = room.memberAvatars[otherUserId] ?: ""
-    val assignedNickname = room.nicknames[otherUserId]
+    val assignedNickname = if (otherUserId.isNotBlank()) room.nicknames[otherUserId] else null
     val effectiveDisplayName = if (!room.isGroup) {
         if (!assignedNickname.isNullOrBlank()) assignedNickname else otherUsername
     } else {
@@ -796,7 +796,7 @@ fun FrostedDirectChatItem(
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (!room.isGroup && otherAvatarUrl.isNotBlank()) {
+        if (!room.isGroup) {
             com.example.ui.components.LoopinAvatar(
                 avatarUrl = otherAvatarUrl,
                 size = 50.dp,
@@ -812,21 +812,12 @@ fun FrostedDirectChatItem(
                     .clickable { onAvatarClick() },
                 contentAlignment = Alignment.Center
             ) {
-                if (room.isGroup) {
-                    Icon(
-                        imageVector = Icons.Default.Group,
-                        contentDescription = "Group",
-                        tint = LoopinIrisGlow,
-                        modifier = Modifier.size(24.dp)
-                    )
-                } else {
-                    Text(
-                        text = effectiveDisplayName.take(2).uppercase(),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = LoopinIrisGlow
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Default.Group,
+                    contentDescription = "Group",
+                    tint = LoopinIrisGlow,
+                    modifier = Modifier.size(24.dp)
+                )
             }
         }
 
@@ -1332,47 +1323,148 @@ fun FrostedUserNoteBubble(
     isPlaying: Boolean,
     onClick: () -> Unit
 ) {
+    val isDark = LocalIsDarkTheme.current
+    val colorTheme = remember(myNote?.colorTheme) {
+        NoteColorPalette.getColorById(myNote?.colorTheme ?: "neutral")
+    }
+    val bubbleBg = if (myNote != null) {
+        if (isDark) colorTheme.backgroundDark else colorTheme.backgroundLight
+    } else {
+        if (isDark) Color(0xD9222533) else Color(0xF2FFFFFF)
+    }
+    val textColor = if (myNote != null) {
+        if (isDark) colorTheme.textDark else colorTheme.textLight
+    } else {
+        TextPrimary
+    }
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .clickable { onClick() }
             .padding(horizontal = 4.dp)
+            .testTag("user_note_bubble")
     ) {
         Box(contentAlignment = Alignment.TopCenter) {
-            // Note pill if left
+            // Thought Bubble
             if (myNote != null) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0x38FFFFFF))
-                        .border(1.dp, if (isPlaying) SpotifyGreen else GlassBorder, RoundedCornerShape(14.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = myNote.noteText.take(16),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (isPlaying) SpotifyGreen else TextPrimary
+                    Box(
+                        modifier = Modifier
+                            .widthIn(min = 64.dp, max = 104.dp)
+                            .shadow(
+                                elevation = 6.dp,
+                                shape = RoundedCornerShape(16.dp),
+                                ambientColor = bubbleBg.copy(alpha = 0.35f),
+                                spotColor = bubbleBg.copy(alpha = 0.5f)
+                            )
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(bubbleBg)
+                            .border(
+                                width = 1.dp,
+                                color = if (isPlaying) SpotifyGreen else Color.White.copy(alpha = 0.25f),
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            if (myNote.songTitle.isNotBlank()) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(bottom = 2.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.MusicNote,
+                                        contentDescription = null,
+                                        tint = if (colorTheme.id == "neutral") SpotifyGreen else textColor,
+                                        modifier = Modifier.size(11.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text(
+                                        text = myNote.songTitle,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (colorTheme.id == "neutral") SpotifyGreen else textColor,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                            if (myNote.noteText.isNotBlank()) {
+                                Text(
+                                    text = myNote.noteText,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = textColor,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(bubbleBg)
+                            .border(0.5.dp, Color.White.copy(alpha = 0.3f), CircleShape)
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(4.dp)
+                            .clip(CircleShape)
+                            .background(bubbleBg)
+                            .border(0.5.dp, Color.White.copy(alpha = 0.3f), CircleShape)
                     )
                 }
             }
 
             Box(
                 modifier = Modifier
-                    .padding(top = if (myNote != null) 24.dp else 4.dp)
-                    .size(54.dp)
+                    .padding(top = if (myNote != null) 36.dp else 6.dp)
+                    .size(56.dp)
                     .clip(CircleShape)
-                    .border(1.5.dp, if (myNote != null) SpotifyGreen else LoopinIrisGlow, CircleShape),
+                    .border(
+                        width = 2.dp,
+                        color = if (myNote != null) bubbleBg else LoopinIrisGlow,
+                        shape = CircleShape
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 com.example.ui.components.LoopinAvatar(
                     avatarUrl = userProfile?.avatarUrl,
-                    size = 54.dp
+                    size = 56.dp
                 )
+
+                if (myNote == null) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(LoopinIris)
+                            .border(1.5.dp, Color.White, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Share a note",
+                            tint = Color.White,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = if (myNote != null) "Your note" else "Share a note",
             fontSize = 11.sp,
@@ -1387,61 +1479,124 @@ fun FrostedSquadNoteBubble(
     isPlaying: Boolean,
     onClick: () -> Unit
 ) {
+    val isDark = LocalIsDarkTheme.current
+    val colorTheme = remember(note.colorTheme) {
+        NoteColorPalette.getColorById(note.colorTheme)
+    }
+    val bubbleBg = if (isDark) colorTheme.backgroundDark else colorTheme.backgroundLight
+    val textColor = if (isDark) colorTheme.textDark else colorTheme.textLight
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .clickable { onClick() }
             .padding(horizontal = 4.dp)
+            .testTag("squad_note_bubble_${note.id}")
     ) {
         Box(contentAlignment = Alignment.TopCenter) {
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Color(0x38FFFFFF))
-                    .border(1.dp, if (isPlaying) SpotifyGreen else GlassBorder, RoundedCornerShape(14.dp))
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(
-                    text = note.noteText.take(16),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (isPlaying) SpotifyGreen else TextPrimary
+                Box(
+                    modifier = Modifier
+                        .widthIn(min = 64.dp, max = 104.dp)
+                        .shadow(
+                            elevation = 6.dp,
+                            shape = RoundedCornerShape(16.dp),
+                            ambientColor = bubbleBg.copy(alpha = 0.35f),
+                            spotColor = bubbleBg.copy(alpha = 0.5f)
+                        )
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(bubbleBg)
+                        .border(
+                            width = 1.dp,
+                            color = if (isPlaying) SpotifyGreen else Color.White.copy(alpha = 0.25f),
+                            shape = RoundedCornerShape(16.dp)
+                        )
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        if (note.songTitle.isNotBlank()) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(bottom = 2.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MusicNote,
+                                    contentDescription = null,
+                                    tint = if (colorTheme.id == "neutral") SpotifyGreen else textColor,
+                                    modifier = Modifier.size(11.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = note.songTitle,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (colorTheme.id == "neutral") SpotifyGreen else textColor,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                        if (note.noteText.isNotBlank()) {
+                            Text(
+                                text = note.noteText,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = textColor,
+                                textAlign = TextAlign.Center,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(2.dp))
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(bubbleBg)
+                        .border(0.5.dp, Color.White.copy(alpha = 0.3f), CircleShape)
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Box(
+                    modifier = Modifier
+                        .size(4.dp)
+                        .clip(CircleShape)
+                        .background(bubbleBg)
+                        .border(0.5.dp, Color.White.copy(alpha = 0.3f), CircleShape)
                 )
             }
 
             Box(
                 modifier = Modifier
-                    .padding(top = 24.dp)
-                    .size(54.dp)
+                    .padding(top = 36.dp)
+                    .size(56.dp)
                     .clip(CircleShape)
-                    .border(1.5.dp, if (isPlaying) SolidColor(SpotifyGreen) else GlassStrokeBrush, CircleShape),
+                    .border(
+                        width = 2.dp,
+                        color = bubbleBg,
+                        shape = CircleShape
+                    ),
                 contentAlignment = Alignment.Center
             ) {
-                if (note.userAvatar.isNotBlank()) {
-                    AsyncImage(
-                        model = note.userAvatar,
-                        contentDescription = note.username,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(CircleShape),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Text(
-                        text = note.username.take(2).uppercase(),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = LoopinSilver
-                    )
-                }
+                com.example.ui.components.LoopinAvatar(
+                    avatarUrl = note.userAvatar,
+                    size = 56.dp
+                )
             }
         }
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = "@${note.username}",
             fontSize = 11.sp,
-            color = TextSecondary
+            color = TextSecondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

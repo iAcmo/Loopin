@@ -1,8 +1,11 @@
 package com.example.ui.viewmodel
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import com.example.data.model.Community
 import com.example.data.model.InstantItem
 import com.example.data.model.MusicNote
@@ -13,6 +16,8 @@ import com.example.data.model.RoomMessage
 import com.example.data.model.Story
 import com.example.data.model.UserProfile
 import com.example.data.repository.InstaSquadRepository
+import com.example.ui.theme.VisualThemeMode
+import com.example.util.NotificationHelper
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
@@ -34,6 +39,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _userProfile = MutableStateFlow<UserProfile?>(null)
     val userProfile: StateFlow<UserProfile?> = _userProfile.asStateFlow()
+
+    private val _isProfileLoaded = MutableStateFlow(false)
+    val isProfileLoaded: StateFlow<Boolean> = _isProfileLoaded.asStateFlow()
 
     private val _posts = MutableStateFlow<List<Post>>(emptyList())
     val posts: StateFlow<List<Post>> = _posts.asStateFlow()
@@ -74,14 +82,105 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedPostForComments = MutableStateFlow<Post?>(null)
     val selectedPostForComments: StateFlow<Post?> = _selectedPostForComments.asStateFlow()
 
-    private val _isDarkTheme = MutableStateFlow(true)
+    private val prefs = application.getSharedPreferences("loopin_app_prefs", Context.MODE_PRIVATE)
+
+    private val _isDarkTheme = MutableStateFlow(prefs.getBoolean("key_dark_theme", true))
     val isDarkTheme: StateFlow<Boolean> = _isDarkTheme.asStateFlow()
+
+    private val _visualThemeMode = MutableStateFlow(
+        if (prefs.getString("key_visual_mode", "liquid_glass") == "static_colors") {
+            VisualThemeMode.STATIC_COLORS
+        } else {
+            VisualThemeMode.LIQUID_GLASS
+        }
+    )
+    val visualThemeMode: StateFlow<VisualThemeMode> = _visualThemeMode.asStateFlow()
+
+    private val _notificationsEnabled = MutableStateFlow(prefs.getBoolean("key_notifications_enabled", true))
+    val notificationsEnabled: StateFlow<Boolean> = _notificationsEnabled.asStateFlow()
+
+    private val _notificationSoundEnabled = MutableStateFlow(prefs.getBoolean("key_notification_sound", true))
+    val notificationSoundEnabled: StateFlow<Boolean> = _notificationSoundEnabled.asStateFlow()
 
     private val _toastMessage = MutableStateFlow<String?>(null)
     val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
 
+    private var isAppInForeground: Boolean = true
+    private val lastNotifiedMessageTimes = mutableMapOf<String, Long>()
+    private var initialRoomsLoaded = false
+
     fun setDarkTheme(enabled: Boolean) {
         _isDarkTheme.value = enabled
+        prefs.edit().putBoolean("key_dark_theme", enabled).apply()
+    }
+
+    fun setVisualThemeMode(mode: VisualThemeMode) {
+        _visualThemeMode.value = mode
+        prefs.edit().putString("key_visual_mode", mode.id).apply()
+        _toastMessage.value = "Switched to ${mode.title} theme"
+    }
+
+    fun setNotificationsEnabled(enabled: Boolean) {
+        _notificationsEnabled.value = enabled
+        prefs.edit().putBoolean("key_notifications_enabled", enabled).apply()
+        _toastMessage.value = if (enabled) "Message notifications enabled" else "Message notifications silenced"
+    }
+
+    fun setNotificationSoundEnabled(enabled: Boolean) {
+        _notificationSoundEnabled.value = enabled
+        prefs.edit().putBoolean("key_notification_sound", enabled).apply()
+    }
+
+    fun setAppInForeground(inForeground: Boolean) {
+        isAppInForeground = inForeground
+    }
+
+    fun sendTestNotification() {
+        NotificationHelper.sendTestNotification(getApplication<Application>().applicationContext)
+        _toastMessage.value = "Test notification sent! Check your notification bar."
+    }
+
+    private fun checkAndNotifyNewMessages(roomList: List<Room>) {
+        if (!initialRoomsLoaded) {
+            roomList.forEach { room ->
+                val rId = room.roomId.ifBlank { room.id }
+                val t = room.lastMessageTime?.toDate()?.time ?: 0L
+                lastNotifiedMessageTimes[rId] = t
+            }
+            initialRoomsLoaded = true
+            return
+        }
+
+        val myUid = auth.currentUser?.uid ?: ""
+        val myProfile = _userProfile.value
+        val currentOpenedRoomId = _currentRoom.value?.let { it.roomId.ifBlank { it.id } }
+
+        roomList.forEach { room ->
+            val rId = room.roomId.ifBlank { room.id }
+            val msgTime = room.lastMessageTime?.toDate()?.time ?: 0L
+            val prevTime = lastNotifiedMessageTimes[rId] ?: 0L
+
+            if (msgTime > prevTime && room.lastMessage.isNotBlank()) {
+                lastNotifiedMessageTimes[rId] = msgTime
+                val sender = room.lastMessageSender
+                val isMyMessage = sender == myProfile?.displayName ||
+                                  sender == myProfile?.username ||
+                                  (sender.isBlank() && room.memberIds.firstOrNull() == myUid)
+                val isMuted = room.mutedByUserIds.contains(myUid)
+                val isCurrentlyViewingThisRoom = currentOpenedRoomId == rId && isAppInForeground
+
+                if (!isMyMessage && _notificationsEnabled.value && !isMuted && !isCurrentlyViewingThisRoom) {
+                    NotificationHelper.showMessageNotification(
+                        context = getApplication<Application>().applicationContext,
+                        roomId = rId,
+                        title = room.name.ifBlank { "Direct Message" },
+                        messageText = room.lastMessage,
+                        senderName = sender,
+                        isGroup = room.isGroup
+                    )
+                }
+            }
+        }
     }
 
     private var dataObservationJob: Job? = null
@@ -120,8 +219,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             launch {
                 repository.observeUserProfile(uid).collectLatest { profile ->
                     _userProfile.value = profile
-                    if (profile != null && !profile.isOnline) {
-                        repository.setUserOnlineStatus(true)
+                    _isProfileLoaded.value = true
+                    if (profile != null) {
+                        if (!profile.isOnline) {
+                            repository.setUserOnlineStatus(true)
+                        }
+                        repository.ensureStarterContentForUser(
+                            username = profile.username,
+                            displayName = profile.displayName,
+                            avatarUrl = profile.avatarUrl,
+                            squadId = profile.squadId
+                        )
                     }
                 }
             }
@@ -143,6 +251,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             launch {
                 repository.observeRooms().collectLatest { roomList ->
                     _rooms.value = roomList
+                    checkAndNotifyNewMessages(roomList)
                     val current = _currentRoom.value
                     if (current != null) {
                         val currentId = current.roomId.ifBlank { current.id }
@@ -170,6 +279,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         dataObservationJob?.cancel()
         dataObservationJob = null
         _userProfile.value = null
+        _isProfileLoaded.value = false
         _posts.value = emptyList()
         _stories.value = emptyList()
         _rooms.value = emptyList()
@@ -203,6 +313,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 squadId = squadId
             )
             if (result.isSuccess) {
+                repository.ensureStarterContentForUser(
+                    username = cleanUser,
+                    displayName = displayName,
+                    avatarUrl = avatarUrl,
+                    squadId = squadId
+                )
                 _toastMessage.value = "Welcome to Loopin, @$cleanUser!"
                 onComplete()
             } else {
@@ -423,6 +539,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun selectRoomById(roomId: String) {
+        val existing = _rooms.value.find { (it.roomId.ifBlank { it.id }) == roomId }
+        if (existing != null) {
+            selectRoom(existing)
+        } else {
+            viewModelScope.launch {
+                repository.observeRoom(roomId).collectLatest { room ->
+                    if (room != null) {
+                        selectRoom(room)
+                    }
+                }
+            }
+        }
+    }
+
     fun closeRoom() {
         setUserTyping(false)
         typingJob?.cancel()
@@ -504,12 +635,40 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun unsendMessage(messageId: String) {
         val room = _currentRoom.value ?: return
         val targetRoomId = room.roomId.ifBlank { room.id }
+        // Eagerly remove from UI for instantaneous feedback
+        _currentRoomMessages.value = _currentRoomMessages.value.filter { it.id != messageId }
         viewModelScope.launch {
             val result = repository.unsendMessage(targetRoomId, messageId)
             if (result.isSuccess) {
                 _toastMessage.value = "Message unsent"
             } else {
                 _toastMessage.value = "Cannot unsend message"
+            }
+        }
+    }
+
+    fun deletePost(postId: String) {
+        viewModelScope.launch {
+            _posts.value = _posts.value.filter { it.id != postId }
+            val result = repository.deletePost(postId)
+            if (result.isSuccess) {
+                _toastMessage.value = "Post deleted"
+            } else {
+                _toastMessage.value = "Could not delete post"
+            }
+        }
+    }
+
+    fun updatePostCaption(postId: String, newCaption: String) {
+        viewModelScope.launch {
+            _posts.value = _posts.value.map {
+                if (it.id == postId) it.copy(caption = newCaption) else it
+            }
+            val result = repository.updatePostCaption(postId, newCaption)
+            if (result.isSuccess) {
+                _toastMessage.value = "Post updated"
+            } else {
+                _toastMessage.value = "Could not update post"
             }
         }
     }
@@ -557,12 +716,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun saveMusicNote(
-        songTitle: String,
-        artist: String,
+        songTitle: String = "",
+        artist: String = "",
         noteText: String,
         albumCoverUrl: String = "",
         spotifyUri: String = "",
-        previewAudioUrl: String = ""
+        previewAudioUrl: String = "",
+        colorTheme: String = "neutral"
     ) {
         val profile = _userProfile.value ?: return
         viewModelScope.launch {
@@ -575,15 +735,34 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 previewAudioUrl = previewAudioUrl,
                 squadId = profile.squadId,
                 username = profile.username,
-                userAvatar = profile.avatarUrl
+                userAvatar = profile.avatarUrl,
+                colorTheme = colorTheme
             )
             if (result.isSuccess) {
-                _toastMessage.value = "Spotify note shared!"
+                _toastMessage.value = "Note shared! Active for 24 hours."
             } else {
                 _toastMessage.value = "Failed to save note"
             }
         }
     }
+
+    fun saveNote(
+        noteText: String,
+        colorTheme: String = "neutral",
+        songTitle: String = "",
+        artist: String = "",
+        albumCoverUrl: String = "",
+        spotifyUri: String = "",
+        previewAudioUrl: String = ""
+    ) = saveMusicNote(
+        songTitle = songTitle,
+        artist = artist,
+        noteText = noteText,
+        albumCoverUrl = albumCoverUrl,
+        spotifyUri = spotifyUri,
+        previewAudioUrl = previewAudioUrl,
+        colorTheme = colorTheme
+    )
 
     fun deleteMusicNote(noteId: String = "") {
         val profile = _userProfile.value ?: return
@@ -591,9 +770,99 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val targetId = if (noteId.isNotBlank()) noteId else profile.userId
             val result = repository.deleteMusicNote(targetId)
             if (result.isSuccess) {
-                _toastMessage.value = "Music note removed"
+                _toastMessage.value = "Note removed"
             } else {
                 _toastMessage.value = "Failed to remove note"
+            }
+        }
+    }
+
+    // App Passcode & Biometric Security Lock
+    private val _isAppLocked = MutableStateFlow(
+        prefs.getBoolean("key_app_lock_enabled", false) && prefs.getString("key_app_lock_pin_hash", "").isNullOrBlank().not()
+    )
+    val isAppLocked: StateFlow<Boolean> = _isAppLocked.asStateFlow()
+
+    private val _appLockEnabled = MutableStateFlow(prefs.getBoolean("key_app_lock_enabled", false))
+    val appLockEnabled: StateFlow<Boolean> = _appLockEnabled.asStateFlow()
+
+    private val _appLockPinLength = MutableStateFlow(prefs.getInt("key_app_lock_pin_length", 4))
+    val appLockPinLength: StateFlow<Int> = _appLockPinLength.asStateFlow()
+
+    private val _biometricUnlockEnabled = MutableStateFlow(prefs.getBoolean("key_app_lock_biometric_enabled", false))
+    val biometricUnlockEnabled: StateFlow<Boolean> = _biometricUnlockEnabled.asStateFlow()
+
+    private val _appLockTimeoutMins = MutableStateFlow(prefs.getInt("key_app_lock_timeout_mins", 0))
+    val appLockTimeoutMins: StateFlow<Int> = _appLockTimeoutMins.asStateFlow()
+
+    private var lastBackgroundTimestamp = 0L
+
+    private fun hashPin(pin: String): String {
+        val bytes = java.security.MessageDigest.getInstance("SHA-256").digest(pin.toByteArray())
+        return bytes.joinToString("") { "%02x".format(it) }
+    }
+
+    fun configureAppLock(
+        enabled: Boolean,
+        pin: String,
+        pinLength: Int,
+        biometricEnabled: Boolean,
+        timeoutMins: Int
+    ) {
+        val pinHash = if (pin.isNotBlank()) hashPin(pin) else prefs.getString("key_app_lock_pin_hash", "") ?: ""
+        prefs.edit()
+            .putBoolean("key_app_lock_enabled", enabled)
+            .putString("key_app_lock_pin_hash", pinHash)
+            .putInt("key_app_lock_pin_length", pinLength)
+            .putBoolean("key_app_lock_biometric_enabled", biometricEnabled)
+            .putInt("key_app_lock_timeout_mins", timeoutMins)
+            .apply()
+
+        _appLockEnabled.value = enabled
+        _appLockPinLength.value = pinLength
+        _biometricUnlockEnabled.value = biometricEnabled
+        _appLockTimeoutMins.value = timeoutMins
+
+        _toastMessage.value = if (enabled) "App Passcode Lock enabled ($pinLength-digit)" else "App Lock disabled"
+    }
+
+    fun disableAppLock() {
+        prefs.edit()
+            .putBoolean("key_app_lock_enabled", false)
+            .putString("key_app_lock_pin_hash", "")
+            .apply()
+        _appLockEnabled.value = false
+        _isAppLocked.value = false
+        _toastMessage.value = "App Lock turned off"
+    }
+
+    fun verifyPasscode(inputPin: String): Boolean {
+        val storedHash = prefs.getString("key_app_lock_pin_hash", "") ?: ""
+        if (storedHash.isBlank()) return true
+        val inputHash = hashPin(inputPin)
+        return storedHash == inputHash
+    }
+
+    fun unlockApp() {
+        _isAppLocked.value = false
+    }
+
+    fun lockApp() {
+        if (_appLockEnabled.value) {
+            _isAppLocked.value = true
+        }
+    }
+
+    fun onAppPaused() {
+        lastBackgroundTimestamp = System.currentTimeMillis()
+    }
+
+    fun onAppResumed() {
+        if (_appLockEnabled.value) {
+            val timeoutMillis = _appLockTimeoutMins.value * 60 * 1000L
+            val elapsed = System.currentTimeMillis() - lastBackgroundTimestamp
+            if (lastBackgroundTimestamp == 0L || elapsed >= timeoutMillis) {
+                _isAppLocked.value = true
             }
         }
     }

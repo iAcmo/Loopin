@@ -5,11 +5,11 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
-// Subtle liquid glassmorphic background & surface colors
-val LoopinBg = Color(0xFF08090E)
-val LoopinBgSecondary = Color(0xFF0E1018)
-val LoopinSurface = Color(0xFF141724)
-val LoopinSurfaceElevated = Color(0xFF1A1E2E)
+// Subtle liquid glassmorphic background & surface colors (Dark theme underlying color #0C1014)
+val LoopinBg = Color(0xFF0C1014)
+val LoopinBgSecondary = Color(0xFF10151C)
+val LoopinSurface = Color(0xFF151C24)
+val LoopinSurfaceElevated = Color(0xFF1C2530)
 
 // Liquid Frosted Glass Colors
 val DarkGlassFill = Color(0x14FFFFFF)
@@ -79,6 +79,24 @@ val LoopinIrisGlow = Color(0xFFA69FFF)
 val LoopinSilver = Color(0xFFE2E5EE)
 val LoopinLikeRed = Color(0xFFFF4869)
 val LoopinOnlineGreen = Color(0xFF22C55E)
+
+data class AccentPreset(
+    val id: String,
+    val name: String,
+    val color: Color,
+    val glow: Color
+)
+
+val PRESET_ACCENT_COLORS = listOf(
+    AccentPreset("iris", "Signature Iris", Color(0xFF7E74F1), Color(0xFFA69FFF)),
+    AccentPreset("cyan", "Cyber Cyan", Color(0xFF06B6D4), Color(0xFF67E8F9)),
+    AccentPreset("emerald", "Neon Emerald", Color(0xFF10B981), Color(0xFF6EE7B7)),
+    AccentPreset("ember", "Sunset Ember", Color(0xFFF97316), Color(0xFFFDBA74)),
+    AccentPreset("rose", "Rose Quartz", Color(0xFFF43F5E), Color(0xFFFDA4AF)),
+    AccentPreset("violet", "Electric Violet", Color(0xFFA855F7), Color(0xFFD8B4FE)),
+    AccentPreset("amber", "Golden Amber", Color(0xFFF59E0B), Color(0xFFFCD34D)),
+    AccentPreset("sky", "Sky Blue", Color(0xFF0284C7), Color(0xFF7DD3FC))
+)
 
 // Liquid Frosted Brushes
 val GlassStrokeBrush = Brush.linearGradient(

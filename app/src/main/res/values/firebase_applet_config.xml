@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <resources>
     <string name="firestore_database_id" translatable="false">ai-studio-android-instasqu-09091919-6a30-4eaf-81e6-d394f57f8a54</string>
+    <string name="recaptcha_site_key" translatable="false">6LfsLwguAAAAAPDI4XIApewzKyJbmhVwUeLBogmE</string>
 </resources>

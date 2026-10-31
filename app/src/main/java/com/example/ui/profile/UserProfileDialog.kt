@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material3.Button
@@ -70,6 +71,7 @@ fun UserProfileDetailDialog(
     onToggleFollow: (String) -> Unit,
     onToggleBlock: (String) -> Unit,
     onStartDirectMessage: (userId: String, username: String) -> Unit,
+    onExpandToFullScreen: (UserProfile) -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val isMe = currentUser?.userId == user.userId
@@ -90,7 +92,7 @@ fun UserProfileDetailDialog(
                     .padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Top header bar with close
+                // Top header bar with expand and close
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -114,16 +116,35 @@ fun UserProfileDetailDialog(
                         )
                     }
 
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.size(32.dp).testTag("close_user_profile_dialog")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = TextSecondary,
-                            modifier = Modifier.size(20.dp)
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(
+                            onClick = {
+                                onDismiss()
+                                onExpandToFullScreen(user)
+                            },
+                            modifier = Modifier.size(32.dp).testTag("expand_user_profile_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.OpenInFull,
+                                contentDescription = "Expand to full profile",
+                                tint = LoopinIrisGlow,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(4.dp))
+
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.size(32.dp).testTag("close_user_profile_dialog")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = TextSecondary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
 
@@ -292,6 +313,40 @@ fun UserProfileDetailDialog(
                                 contentDescription = if (isBlocked) "Unblock" else "Block",
                                 tint = if (isBlocked) Color(0xFFFF6B6B) else TextSecondary,
                                 modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // View Full Profile Expand Action Pill
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0x187E74F1))
+                            .border(1.dp, LoopinIrisGlow.copy(alpha = 0.45f), RoundedCornerShape(12.dp))
+                            .clickable {
+                                onDismiss()
+                                onExpandToFullScreen(user)
+                            }
+                            .padding(vertical = 9.dp)
+                            .testTag("expand_to_full_profile_pill"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.OpenInFull,
+                                contentDescription = null,
+                                tint = LoopinIrisGlow,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "View Full Profile",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = LoopinIrisGlow
                             )
                         }
                     }

@@ -126,10 +126,16 @@ fun FeedScreen(
     onCreateStory: (mediaUrl: String, caption: String, songTitle: String, songArtist: String) -> Unit,
     onCreatePost: (caption: String, imageUrl: String) -> Unit,
     onNavigateToDMs: () -> Unit,
-    onOpenUserProfile: (username: String) -> Unit = {}
+    onOpenUserProfile: (username: String) -> Unit = {},
+    onDeletePost: (Post) -> Unit = {},
+    onEditPostCaption: (Post, String) -> Unit = { _, _ -> },
+    onToggleFollow: (String) -> Unit = {},
+    onToggleBlock: (String) -> Unit = {},
+    onSharePostToDM: (Post) -> Unit = {}
 ) {
     var showCreatePostDialog by remember { mutableStateOf(false) }
     var showCreateStoryDialog by remember { mutableStateOf(false) }
+    var selectedPostForOptions by remember { mutableStateOf<Post?>(null) }
 
     LiquidGlassBackground {
         Column(
@@ -175,7 +181,8 @@ fun FeedScreen(
                             onLike = { onLikePost(post) },
                             onComment = { onOpenComments(post) },
                             onShareToDM = onNavigateToDMs,
-                            onOpenUserProfile = onOpenUserProfile
+                            onOpenUserProfile = onOpenUserProfile,
+                            onOptionsClick = { selectedPostForOptions = post }
                         )
                     }
                 }
@@ -232,6 +239,21 @@ fun FeedScreen(
                 onOpenUserProfile = onOpenUserProfile
             )
         }
+
+        // Instagram-grade Post Options Bottom Sheet
+        if (selectedPostForOptions != null) {
+            PostOptionsBottomSheet(
+                post = selectedPostForOptions!!,
+                currentUser = userProfile,
+                onEditCaption = { p, newCap -> onEditPostCaption(p, newCap) },
+                onDeletePost = { p -> onDeletePost(p) },
+                onSharePostToDM = { p -> onSharePostToDM(p) },
+                onViewUserProfile = { uname -> onOpenUserProfile(uname) },
+                onToggleFollow = { uid -> onToggleFollow(uid) },
+                onToggleBlock = { uid -> onToggleBlock(uid) },
+                onDismiss = { selectedPostForOptions = null }
+            )
+        }
     }
 }
 
@@ -242,69 +264,65 @@ private fun LoopinTopAppBar(
     onAddStory: () -> Unit
 ) {
     val isDark = LocalIsDarkTheme.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .statusBarsPadding()
-            .height(58.dp)
-            .background(if (isDark) Color(0x3308090E) else Color(0xEEFFFFFF))
-            .border(
-                width = 0.5.dp,
-                color = if (isDark) Color(0x18FFFFFF) else Color(0x12000000),
-                shape = RoundedCornerShape(0.dp)
-            )
-            .padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_loopin_logo),
-                contentDescription = "Loopin Logo",
-                tint = if (isDark) Color.White else LoopinIris,
-                modifier = Modifier.size(34.dp)
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-            Text(
-                text = "loopin",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary,
-                letterSpacing = (-0.5).sp
-            )
-        }
+    val accent = com.example.ui.theme.LocalAppAccentColor.current
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(
-                onClick = onAddStory,
-                modifier = Modifier.testTag("add_story_top_button")
-            ) {
+    com.example.ui.components.LiquidGlassHeader(
+        zRadius = 12.dp
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = Icons.Default.PhotoCamera,
-                    contentDescription = "Camera",
-                    tint = TextPrimary,
-                    modifier = Modifier.size(22.dp)
+                    painter = painterResource(id = R.drawable.ic_loopin_logo),
+                    contentDescription = "Loopin Logo",
+                    tint = if (isDark) Color.White else accent,
+                    modifier = Modifier.size(34.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "loopin",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isDark) TextPrimary else Color(0xFF10151C),
+                    letterSpacing = (-0.5).sp
                 )
             }
 
-            IconButton(
-                onClick = onNavigateToDMs,
-                modifier = Modifier.testTag("dms_button")
-            ) {
-                Box {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = onAddStory,
+                    modifier = Modifier.testTag("add_story_top_button")
+                ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "Direct Messages",
-                        tint = TextPrimary,
+                        imageVector = Icons.Default.PhotoCamera,
+                        contentDescription = "Camera",
+                        tint = if (isDark) TextPrimary else Color(0xFF10151C),
                         modifier = Modifier.size(22.dp)
                     )
-                    Box(
-                        modifier = Modifier
-                            .size(7.dp)
-                            .clip(CircleShape)
-                            .background(LoopinIrisGlow)
-                            .align(Alignment.TopEnd)
-                    )
+                }
+
+                IconButton(
+                    onClick = onNavigateToDMs,
+                    modifier = Modifier.testTag("dms_button")
+                ) {
+                    Box {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Direct Messages",
+                            tint = if (isDark) TextPrimary else Color(0xFF10151C),
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(accent)
+                                .align(Alignment.TopEnd)
+                        )
+                    }
                 }
             }
         }
@@ -428,7 +446,8 @@ private fun GlassPostCard(
     onLike: () -> Unit,
     onComment: () -> Unit,
     onShareToDM: () -> Unit,
-    onOpenUserProfile: (username: String) -> Unit = {}
+    onOpenUserProfile: (username: String) -> Unit = {},
+    onOptionsClick: () -> Unit = {}
 ) {
     var isLiked by remember { mutableStateOf(false) }
     var showBigHeart by remember { mutableStateOf(false) }
@@ -486,35 +505,42 @@ private fun GlassPostCard(
                         }
                     }
                 }
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = null,
-                    tint = TextMuted,
-                    modifier = Modifier.size(18.dp)
-                )
+                IconButton(
+                    onClick = onOptionsClick,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .testTag("post_menu_button_${post.id}")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "Post options",
+                        tint = TextMuted,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
 
-            // Post Visual with Double-Tap Heart
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1.05f)
-                    .clip(RoundedCornerShape(14.dp))
-                    .padding(horizontal = 8.dp)
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onDoubleTap = {
-                                if (!isLiked) {
-                                    isLiked = true
-                                    onLike()
+            // Post Visual or Text-Only Caption
+            if (post.imageUrl.isNotBlank()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1.05f)
+                        .clip(RoundedCornerShape(14.dp))
+                        .padding(horizontal = 8.dp)
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onDoubleTap = {
+                                    if (!isLiked) {
+                                        isLiked = true
+                                        onLike()
+                                    }
+                                    showBigHeart = true
                                 }
-                                showBigHeart = true
-                            }
-                        )
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                if (post.imageUrl.isNotBlank()) {
+                            )
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
                     AsyncImage(
                         model = post.imageUrl,
                         contentDescription = "Post photo",
@@ -523,34 +549,55 @@ private fun GlassPostCard(
                             .clip(RoundedCornerShape(14.dp)),
                         contentScale = ContentScale.Crop
                     )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(Brush.linearGradient(listOf(Color(0x287E74F1), Color(0x181DB954))))
-                            .padding(20.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = post.caption.ifBlank { "Squad update from ${post.username}" },
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextPrimary,
-                            textAlign = TextAlign.Center
+
+                    if (showBigHeart) {
+                        Icon(
+                            imageVector = Icons.Default.Favorite,
+                            contentDescription = null,
+                            tint = LoopinLikeRed,
+                            modifier = Modifier
+                                .size(90.dp)
+                                .scale(heartScale)
                         )
                     }
                 }
-
-                if (showBigHeart) {
-                    Icon(
-                        imageVector = Icons.Default.Favorite,
-                        contentDescription = null,
-                        tint = LoopinLikeRed,
-                        modifier = Modifier
-                            .size(90.dp)
-                            .scale(heartScale)
+            } else {
+                // Text-only post: Clean modern caption without residual image box
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onDoubleTap = {
+                                    if (!isLiked) {
+                                        isLiked = true
+                                        onLike()
+                                    }
+                                    showBigHeart = true
+                                }
+                            )
+                        }
+                ) {
+                    Text(
+                        text = post.caption.ifBlank { "Squad update from ${post.username}" },
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = TextPrimary,
+                        lineHeight = 22.sp
                     )
+
+                    if (showBigHeart) {
+                        Icon(
+                            imageVector = Icons.Default.Favorite,
+                            contentDescription = null,
+                            tint = LoopinLikeRed,
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .size(70.dp)
+                                .scale(heartScale)
+                        )
+                    }
                 }
             }
 
@@ -626,7 +673,7 @@ private fun GlassPostCard(
                     )
                 }
 
-                if (post.caption.isNotBlank()) {
+                if (post.imageUrl.isNotBlank() && post.caption.isNotBlank()) {
                     Row {
                         Text(
                             text = post.username + " ",

@@ -49,8 +49,8 @@ service cloud.firestore {
              (!('communityId' in data) || data.communityId == null || (data.communityId is string && data.communityId.size() <= 64)) &&
              (!('communityName' in data) || data.communityName == null || (data.communityName is string && data.communityName.size() <= 64)) &&
              (!('username' in data) || data.username == null || (data.username is string && data.username.size() <= 50)) &&
-             (!('userAvatar' in data) || data.userAvatar == null || (data.userAvatar is string && data.userAvatar.size() <= 500)) &&
-             (!('imageUrl' in data) || data.imageUrl == null || (data.imageUrl is string && data.imageUrl.size() <= 500)) &&
+             (!('userAvatar' in data) || data.userAvatar == null || (data.userAvatar is string && data.userAvatar.size() <= 1000)) &&
+             (!('imageUrl' in data) || data.imageUrl == null || (data.imageUrl is string && data.imageUrl.size() <= 2000)) &&
              (!('likesCount' in data) || data.likesCount is int) &&
              (!('commentsCount' in data) || data.commentsCount is int);
     }
@@ -59,16 +59,18 @@ service cloud.firestore {
       return data.userId is string && data.userId.size() <= 128 &&
              data.username is string && data.username.size() <= 50 &&
              data.text is string && data.text.size() >= 1 && data.text.size() <= 500 &&
-             (!('userAvatar' in data) || data.userAvatar == null || (data.userAvatar is string && data.userAvatar.size() <= 500));
+             (!('userAvatar' in data) || data.userAvatar == null || (data.userAvatar is string && data.userAvatar.size() <= 1000));
     }
 
     function isValidStory(data) {
       return data.userId is string && data.userId.size() <= 128 &&
-             data.mediaUrl is string && data.mediaUrl.size() <= 500 &&
+             data.mediaUrl is string && data.mediaUrl.size() <= 2000 &&
              (!('squadId' in data) || data.squadId == null || (data.squadId is string && data.squadId.size() <= 32)) &&
-             (!('caption' in data) || data.caption == null || (data.caption is string && data.caption.size() <= 200)) &&
+             (!('caption' in data) || data.caption == null || (data.caption is string && data.caption.size() <= 500)) &&
+             (!('songTitle' in data) || data.songTitle == null || (data.songTitle is string && data.songTitle.size() <= 100)) &&
+             (!('songArtist' in data) || data.songArtist == null || (data.songArtist is string && data.songArtist.size() <= 100)) &&
              (!('username' in data) || data.username == null || (data.username is string && data.username.size() <= 50)) &&
-             (!('userAvatar' in data) || data.userAvatar == null || (data.userAvatar is string && data.userAvatar.size() <= 500));
+             (!('userAvatar' in data) || data.userAvatar == null || (data.userAvatar is string && data.userAvatar.size() <= 1000));
     }
 
     function isValidRoom(data) {
@@ -91,6 +93,7 @@ service cloud.firestore {
              (!('nicknames' in data) || data.nicknames is map) &&
              (!('mutedByUserIds' in data) || (data.mutedByUserIds is list && data.mutedByUserIds.size() <= 500)) &&
              (!('blockedUserIds' in data) || (data.blockedUserIds is list && data.blockedUserIds.size() <= 500)) &&
+             (!('showMembers' in data) || data.showMembers is bool) &&
              (!('memberAvatars' in data) || data.memberAvatars is map) &&
              (!('unreadByUserIds' in data) || (data.unreadByUserIds is list && data.unreadByUserIds.size() <= 100));
     }
@@ -125,21 +128,29 @@ service cloud.firestore {
 
     function isValidNote(data) {
       return data.userId is string && data.userId.size() <= 128 &&
-             data.squadId is string && data.squadId.size() <= 32 &&
-             data.songTitle is string && data.songTitle.size() <= 100 &&
-             data.artist is string && data.artist.size() <= 100 &&
+             (!('squadId' in data) || data.squadId == null || (data.squadId is string && data.squadId.size() <= 32)) &&
+             (!('songTitle' in data) || data.songTitle == null || (data.songTitle is string && data.songTitle.size() <= 100)) &&
+             (!('artist' in data) || data.artist == null || (data.artist is string && data.artist.size() <= 100)) &&
              data.noteText is string && data.noteText.size() <= 150 &&
              (!('username' in data) || data.username == null || (data.username is string && data.username.size() <= 50)) &&
-             (!('userAvatar' in data) || data.userAvatar == null || (data.userAvatar is string && data.userAvatar.size() <= 500));
+             (!('userAvatar' in data) || data.userAvatar == null || (data.userAvatar is string && data.userAvatar.size() <= 1000)) &&
+             (!('colorTheme' in data) || data.colorTheme == null || (data.colorTheme is string && data.colorTheme.size() <= 32)) &&
+             (!('albumCoverUrl' in data) || data.albumCoverUrl == null || (data.albumCoverUrl is string && data.albumCoverUrl.size() <= 1000)) &&
+             (!('spotifyUri' in data) || data.spotifyUri == null || (data.spotifyUri is string && data.spotifyUri.size() <= 300)) &&
+             (!('previewAudioUrl' in data) || data.previewAudioUrl == null || (data.previewAudioUrl is string && data.previewAudioUrl.size() <= 1000)) &&
+             (!('expiresAt' in data) || data.expiresAt == null || data.expiresAt is timestamp);
     }
 
     function isValidInstant(data) {
       return data.userId is string && data.userId.size() <= 128 &&
-             data.imageUrl is string && data.imageUrl.size() <= 500 &&
-             data.squadId is string && data.squadId.size() <= 32 &&
+             data.imageUrl is string && data.imageUrl.size() <= 2000 &&
+             (!('squadId' in data) || data.squadId == null || (data.squadId is string && data.squadId.size() <= 32)) &&
              (!('caption' in data) || data.caption == null || (data.caption is string && data.caption.size() <= 200)) &&
              (!('username' in data) || data.username == null || (data.username is string && data.username.size() <= 50)) &&
-             (!('userAvatar' in data) || data.userAvatar == null || (data.userAvatar is string && data.userAvatar.size() <= 500));
+             (!('userAvatar' in data) || data.userAvatar == null || (data.userAvatar is string && data.userAvatar.size() <= 1000)) &&
+             (!('likesCount' in data) || data.likesCount is int) &&
+             (!('commentsCount' in data) || data.commentsCount is int) &&
+             (!('likedByUserIds' in data) || (data.likedByUserIds is list && data.likedByUserIds.size() <= 10000));
     }
 
     // Collection: Users
@@ -222,7 +233,7 @@ service cloud.firestore {
                          isValidMessage(incoming());
         allow update: if isSignedIn() && (
                          (incoming().diff(existing()).affectedKeys().hasOnly(['reactions']) && incoming().reactions is list) ||
-                         (incoming().diff(existing()).affectedKeys().hasOnly(['isUnsent']) && incoming().isUnsent is bool) ||
+                         (incoming().diff(existing()).affectedKeys().hasAny(['isUnsent', 'text', 'type', 'mediaUrl'])) ||
                          (incoming().diff(existing()).affectedKeys().hasOnly(['isViewed']) && incoming().isViewed is bool) ||
                          (incoming().diff(existing()).affectedKeys().hasOnly(['deletedForUserIds']) && incoming().deletedForUserIds is list) ||
                          (incoming().diff(existing()).affectedKeys().hasAny(['status', 'seenAt', 'seenByUserIds']))
@@ -253,7 +264,22 @@ service cloud.firestore {
                        incoming().createdAt is timestamp &&
                        incoming().createdAt <= request.time &&
                        isValidInstant(incoming());
+      allow update: if isSignedIn() && (
+                       (existing().userId == request.auth.uid && isValidInstant(incoming())) ||
+                       (incoming().diff(existing()).affectedKeys().hasAny(['likesCount', 'likedByUserIds'])) ||
+                       (incoming().diff(existing()).affectedKeys().hasOnly(['commentsCount']) && incoming().commentsCount is int)
+                    );
       allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+
+      match /comments/{commentId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         isValidComment(incoming());
+        allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+      }
     }
   }
 }

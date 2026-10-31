@@ -103,7 +103,8 @@ data class Room(
     val nicknames: Map<String, String> = emptyMap(), // userId -> nickname
     val mutedByUserIds: List<String> = emptyList(),
     val blockedUserIds: List<String> = emptyList(),
-    val memberAvatars: Map<String, String> = emptyMap() // userId -> avatarUrl
+    val memberAvatars: Map<String, String> = emptyMap(), // userId -> avatarUrl
+    val showMembers: Boolean = true
 )
 
 @IgnoreExtraProperties
@@ -151,8 +152,12 @@ data class MusicNote(
     val albumCoverUrl: String = "",
     val spotifyUri: String = "",
     val previewAudioUrl: String = "",
+    val colorTheme: String = "neutral", // "neutral", "pink", "blue", "lime", "yellow", "purple", "orange"
+    val expiresAt: Timestamp? = null,
     @ServerTimestamp val createdAt: Timestamp? = null
 )
+
+typealias NoteItem = MusicNote
 
 @IgnoreExtraProperties
 data class InstantItem(
@@ -163,5 +168,8 @@ data class InstantItem(
     val squadId: String = "",
     val imageUrl: String = "",
     val caption: String = "",
+    val likesCount: Long = 0L,
+    val commentsCount: Long = 0L,
+    val likedByUserIds: List<String> = emptyList(),
     @ServerTimestamp val createdAt: Timestamp? = null
 )

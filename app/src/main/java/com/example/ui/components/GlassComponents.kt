@@ -46,6 +46,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
@@ -80,12 +82,14 @@ import com.example.ui.theme.GlassStrokeBrush
 import com.example.ui.theme.LightGlassBorder
 import com.example.ui.theme.LightGlassBorderStrong
 import com.example.ui.theme.LocalIsDarkTheme
+import com.example.ui.theme.LocalVisualThemeMode
 import com.example.ui.theme.LoopinBg
 import com.example.ui.theme.LoopinIris
 import com.example.ui.theme.LoopinIrisGlow
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
+import com.example.ui.theme.VisualThemeMode
 import kotlin.math.max
 
 /**
@@ -148,58 +152,93 @@ fun LiquidGlassBackground(
     content: @Composable BoxScope.() -> Unit
 ) {
     val isDark = LocalIsDarkTheme.current
-    val bgColor = if (isDark) LoopinBg else Color(0xFFF1F3F9)
+    val visualMode = LocalVisualThemeMode.current
+    val isStatic = visualMode == VisualThemeMode.STATIC_COLORS
+
+    val bgColor = if (isDark) {
+        if (isStatic) Color(0xFF18181B) else LoopinBg
+    } else {
+        if (isStatic) Color(0xFFFFFFFF) else Color(0xFFF1F3F9)
+    }
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(bgColor)
     ) {
-        // Ambient soft liquid light refractions behind the frosted glass
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            if (isDark) {
-                // Upper subtle indigo liquid light
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(Color(0x354B3FA8), Color(0x123A2F8A), Color.Transparent),
-                        center = Offset(size.width * 0.2f, size.height * 0.15f),
-                        radius = size.width * 0.85f
-                    ),
-                    radius = size.width * 0.85f,
-                    center = Offset(size.width * 0.2f, size.height * 0.15f)
-                )
+        if (!isStatic) {
+            // Ambient soft liquid light refractions with optical blur behind frosted glass
+            Canvas(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .blur(radius = 32.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+            ) {
+                if (isDark) {
+                    // Upper subtle indigo liquid light
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(Color(0x354B3FA8), Color(0x123A2F8A), Color.Transparent),
+                            center = Offset(size.width * 0.2f, size.height * 0.15f),
+                            radius = size.width * 0.85f
+                        ),
+                        radius = size.width * 0.85f,
+                        center = Offset(size.width * 0.2f, size.height * 0.15f)
+                    )
 
-                // Lower subtle teal/slate liquid refraction
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(Color(0x28233C57), Color(0x0E182A3E), Color.Transparent),
-                        center = Offset(size.width * 0.85f, size.height * 0.75f),
-                        radius = size.width * 0.9f
-                    ),
-                    radius = size.width * 0.9f,
-                    center = Offset(size.width * 0.85f, size.height * 0.75f)
-                )
-            } else {
-                // Light mode: Soft lavender and luminous sky liquid bloom
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(Color(0x30A59EFF), Color(0x128A82F0), Color.Transparent),
-                        center = Offset(size.width * 0.2f, size.height * 0.15f),
-                        radius = size.width * 0.85f
-                    ),
-                    radius = size.width * 0.85f,
-                    center = Offset(size.width * 0.2f, size.height * 0.15f)
-                )
+                    // Center-right chromatic prism refraction
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(Color(0x22EC4899), Color(0x108B5CF6), Color.Transparent),
+                            center = Offset(size.width * 0.65f, size.height * 0.42f),
+                            radius = size.width * 0.75f
+                        ),
+                        radius = size.width * 0.75f,
+                        center = Offset(size.width * 0.65f, size.height * 0.42f)
+                    )
 
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(Color(0x287EC2FF), Color(0x0C9FD3FF), Color.Transparent),
-                        center = Offset(size.width * 0.85f, size.height * 0.75f),
-                        radius = size.width * 0.9f
-                    ),
-                    radius = size.width * 0.9f,
-                    center = Offset(size.width * 0.85f, size.height * 0.75f)
-                )
+                    // Lower subtle teal/slate liquid refraction
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(Color(0x28233C57), Color(0x0E182A3E), Color.Transparent),
+                            center = Offset(size.width * 0.85f, size.height * 0.75f),
+                            radius = size.width * 0.9f
+                        ),
+                        radius = size.width * 0.9f,
+                        center = Offset(size.width * 0.85f, size.height * 0.75f)
+                    )
+                } else {
+                    // Light mode: Soft lavender and luminous sky liquid bloom
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(Color(0x30A59EFF), Color(0x128A82F0), Color.Transparent),
+                            center = Offset(size.width * 0.2f, size.height * 0.15f),
+                            radius = size.width * 0.85f
+                        ),
+                        radius = size.width * 0.85f,
+                        center = Offset(size.width * 0.2f, size.height * 0.15f)
+                    )
+
+                    // Center prismatic chromatic refraction
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(Color(0x22F43F5E), Color(0x12818CF8), Color.Transparent),
+                            center = Offset(size.width * 0.65f, size.height * 0.42f),
+                            radius = size.width * 0.75f
+                        ),
+                        radius = size.width * 0.75f,
+                        center = Offset(size.width * 0.65f, size.height * 0.42f)
+                    )
+
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(Color(0x287EC2FF), Color(0x0C9FD3FF), Color.Transparent),
+                            center = Offset(size.width * 0.85f, size.height * 0.75f),
+                            radius = size.width * 0.9f
+                        ),
+                        radius = size.width * 0.9f,
+                        center = Offset(size.width * 0.85f, size.height * 0.75f)
+                    )
+                }
             }
         }
 
@@ -209,7 +248,7 @@ fun LiquidGlassBackground(
 
 /**
  * Reusable GlassCard:
- * - Frosted translucent container with multi-stop border gradient
+ * - Frosted translucent container with multi-stop border gradient (or solid opaque in static mode)
  * - Dynamic pointer-based specular highlight that glides with touch/drag
  * - Soft diffuse shadow and optional click scale animation
  */
@@ -224,13 +263,27 @@ fun GlassCard(
     content: @Composable BoxScope.() -> Unit
 ) {
     val isDark = LocalIsDarkTheme.current
-    val fill = if (isDark) {
-        if (isElevated) GlassFillElevated else GlassFill
+    val visualMode = LocalVisualThemeMode.current
+    val isStatic = visualMode == VisualThemeMode.STATIC_COLORS
+
+    val fill = if (isStatic) {
+        if (isDark) {
+            if (isElevated) Color(0xFF27272A) else Color(0xFF202023)
+        } else {
+            if (isElevated) Color(0xFFFFFFFF) else Color(0xFFF8F9FA)
+        }
     } else {
-        if (isElevated) Color(0xF4FFFFFF) else Color(0xDDFFFFFF)
+        if (isDark) {
+            if (isElevated) GlassFillElevated else GlassFill
+        } else {
+            if (isElevated) Color(0xF4FFFFFF) else Color(0xDDFFFFFF)
+        }
     }
 
-    val resolvedBorderBrush = borderBrush ?: if (isDark) {
+    val resolvedBorderBrush = borderBrush ?: if (isStatic) {
+        val solidBorderColor = if (isDark) Color(0xFF3F3F46) else Color(0xFFE2E8F0)
+        Brush.linearGradient(listOf(solidBorderColor, solidBorderColor))
+    } else if (isDark) {
         GlassStrokeBrush
     } else {
         Brush.linearGradient(
@@ -250,7 +303,7 @@ fun GlassCard(
         label = "glassCardScale"
     )
 
-    val (highlightOffsetState, pointerModifier) = if (enableHighlightMovement) {
+    val (highlightOffsetState, pointerModifier) = if (!isStatic && enableHighlightMovement) {
         rememberLiquidHighlightOffset(defaultOffsetFraction = Offset(0.3f, 0.2f))
     } else {
         Pair(remember { mutableStateOf(Offset.Zero) }, Modifier)
@@ -286,10 +339,10 @@ fun GlassCard(
             .background(fill)
             .then(pointerModifier)
             .drawBehind {
-                if (enableHighlightMovement) {
+                if (!isStatic && enableHighlightMovement) {
                     val center = highlightOffsetState.value
                     val radius = max(size.width, size.height) * 0.75f
-                    // Refractive specular glint following pointer
+                    // 1. Primary refractive specular glint following pointer
                     drawCircle(
                         brush = Brush.radialGradient(
                             colors = listOf(specularColor, tintRefractionColor, Color.Transparent),
@@ -298,6 +351,35 @@ fun GlassCard(
                         ),
                         radius = radius,
                         center = center
+                    )
+
+                    // 2. Chromatic refraction split (prismatic light dispersion at glass curvature)
+                    val chromaticOffset = Offset(18f, 14f)
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                if (isDark) Color(0x18A855F7) else Color(0x22818CF8),
+                                Color.Transparent
+                            ),
+                            center = center + chromaticOffset,
+                            radius = radius * 0.65f
+                        ),
+                        radius = radius * 0.65f,
+                        center = center + chromaticOffset
+                    )
+
+                    // 3. Specular rim refraction sheen across the glass surface
+                    drawRoundRect(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                if (isDark) Color(0x26FFFFFF) else Color(0x48FFFFFF),
+                                Color.Transparent,
+                                if (isDark) Color(0x0C7E74F1) else Color(0x16818CF8)
+                            ),
+                            start = Offset.Zero,
+                            end = Offset(size.width, size.height)
+                        ),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(24f, 24f)
                     )
                 }
             }
@@ -331,6 +413,9 @@ fun GlassButton(
     testTag: String? = null
 ) {
     val isDark = LocalIsDarkTheme.current
+    val visualMode = LocalVisualThemeMode.current
+    val isStatic = visualMode == VisualThemeMode.STATIC_COLORS
+
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
@@ -340,31 +425,49 @@ fun GlassButton(
         label = "glassButtonScale"
     )
 
-    val (highlightOffsetState, pointerModifier) = rememberLiquidHighlightOffset(
-        defaultOffsetFraction = Offset(0.4f, 0.3f)
-    )
-
-    val bgBrush = if (isPrimary) {
-        Brush.horizontalGradient(
-            colors = listOf(
-                Color(0xEE7A6FFA),
-                Color(0xEE9086FA)
-            )
-        )
+    val (highlightOffsetState, pointerModifier) = if (!isStatic) {
+        rememberLiquidHighlightOffset(defaultOffsetFraction = Offset(0.4f, 0.3f))
     } else {
-        if (isDark) {
-            Brush.horizontalGradient(listOf(Color(0x28FFFFFF), Color(0x14FFFFFF)))
+        Pair(remember { mutableStateOf(Offset.Zero) }, Modifier)
+    }
+
+    val bgBrush = if (isStatic) {
+        if (isPrimary) {
+            Brush.horizontalGradient(listOf(Color(0xFF6B61ED), Color(0xFF7E74F1)))
         } else {
-            Brush.horizontalGradient(listOf(Color(0x1C000000), Color(0x0C000000)))
+            if (isDark) {
+                Brush.horizontalGradient(listOf(Color(0xFF27272A), Color(0xFF27272A)))
+            } else {
+                Brush.horizontalGradient(listOf(Color(0xFFF1F5F9), Color(0xFFF1F5F9)))
+            }
+        }
+    } else {
+        if (isPrimary) {
+            Brush.horizontalGradient(
+                colors = listOf(
+                    Color(0xEE7A6FFA),
+                    Color(0xEE9086FA)
+                )
+            )
+        } else {
+            if (isDark) {
+                Brush.horizontalGradient(listOf(Color(0x28FFFFFF), Color(0x14FFFFFF)))
+            } else {
+                Brush.horizontalGradient(listOf(Color(0x1C000000), Color(0x0C000000)))
+            }
         }
     }
 
-    val borderStroke = if (isPrimary) {
-        GlassBorderStrong
-    } else if (isDark) {
-        GlassBorder
+    val borderStroke = if (isStatic) {
+        if (isPrimary) Color(0xFF7E74F1) else if (isDark) Color(0xFF3F3F46) else Color(0xFFCBD5E1)
     } else {
-        Color(0x26000000)
+        if (isPrimary) {
+            GlassBorderStrong
+        } else if (isDark) {
+            GlassBorder
+        } else {
+            Color(0x26000000)
+        }
     }
 
     val contentColor = if (isPrimary) Color.White else if (isDark) Color.White else Color(0xFF141728)
@@ -384,21 +487,37 @@ fun GlassButton(
             .background(bgBrush)
             .then(pointerModifier)
             .drawBehind {
-                val center = highlightOffsetState.value
-                val radius = max(size.width, size.height) * 0.8f
-                val sheenAlpha = if (isPressed) 0.45f else 0.22f
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = sheenAlpha),
-                            Color.Transparent
+                if (!isStatic) {
+                    val center = highlightOffsetState.value
+                    val radius = max(size.width, size.height) * 0.8f
+                    val sheenAlpha = if (isPressed) 0.45f else 0.22f
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = sheenAlpha),
+                                Color.Transparent
+                            ),
+                            center = center,
+                            radius = radius
                         ),
-                        center = center,
-                        radius = radius
-                    ),
-                    radius = radius,
-                    center = center
-                )
+                        radius = radius,
+                        center = center
+                    )
+
+                    // Specular rim refraction glint
+                    drawRoundRect(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = if (isPressed) 0.35f else 0.20f),
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.08f)
+                            ),
+                            start = Offset.Zero,
+                            end = Offset(size.width, size.height)
+                        ),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(16f, 16f)
+                    )
+                }
             }
             .border(1.dp, borderStroke, shape)
             .clickable(
@@ -478,12 +597,25 @@ fun GlassNavBar(
     trailingItem: (@Composable () -> Unit)? = null
 ) {
     val isDark = LocalIsDarkTheme.current
-    val (highlightOffsetState, pointerModifier) = rememberLiquidHighlightOffset(
-        defaultOffsetFraction = Offset(0.5f, 0.5f)
-    )
+    val visualMode = LocalVisualThemeMode.current
+    val isStatic = visualMode == VisualThemeMode.STATIC_COLORS
 
-    val capsuleFill = if (isDark) Color(0x38141724) else Color(0xF7FFFFFF)
-    val capsuleBorder = if (isDark) DarkGlassBorder else LightGlassBorder
+    val (highlightOffsetState, pointerModifier) = if (!isStatic) {
+        rememberLiquidHighlightOffset(defaultOffsetFraction = Offset(0.5f, 0.5f))
+    } else {
+        Pair(remember { mutableStateOf(Offset.Zero) }, Modifier)
+    }
+
+    val capsuleFill = if (isStatic) {
+        if (isDark) Color(0xFF202024) else Color(0xFFFFFFFF)
+    } else {
+        if (isDark) Color(0x38141724) else Color(0xF7FFFFFF)
+    }
+    val capsuleBorder = if (isStatic) {
+        if (isDark) Color(0xFF383840) else Color(0xFFE2E8F0)
+    } else {
+        if (isDark) DarkGlassBorder else LightGlassBorder
+    }
 
     Row(
         modifier = modifier
@@ -496,7 +628,7 @@ fun GlassNavBar(
             modifier = Modifier
                 .weight(1f)
                 .shadow(
-                    elevation = 8.dp,
+                    elevation = if (isStatic) 4.dp else 8.dp,
                     shape = RoundedCornerShape(32.dp),
                     ambientColor = Color(0x33000000),
                     spotColor = if (isDark) Color(0x227E74F1) else Color(0x10000000)
@@ -505,20 +637,35 @@ fun GlassNavBar(
                 .background(capsuleFill)
                 .then(pointerModifier)
                 .drawBehind {
-                    val center = highlightOffsetState.value
-                    val radius = size.width * 0.4f
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                if (isDark) Color(0x25A69FFF) else Color(0x307E74F1),
-                                Color.Transparent
+                    if (!isStatic) {
+                        val center = highlightOffsetState.value
+                        val radius = size.width * 0.45f
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    if (isDark) Color(0x28A69FFF) else Color(0x357E74F1),
+                                    Color.Transparent
+                                ),
+                                center = center,
+                                radius = radius
                             ),
-                            center = center,
-                            radius = radius
-                        ),
-                        radius = radius,
-                        center = center
-                    )
+                            radius = radius,
+                            center = center
+                        )
+                        // Chromatic refraction secondary glint
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    if (isDark) Color(0x1506B6D4) else Color(0x2038BDF8),
+                                    Color.Transparent
+                                ),
+                                center = center + Offset(16f, 10f),
+                                radius = radius * 0.65f
+                            ),
+                            radius = radius * 0.65f,
+                            center = center + Offset(16f, 10f)
+                        )
+                    }
                 }
                 .border(
                     width = 1.dp,
@@ -622,12 +769,25 @@ fun GlassSheetContainer(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val isDark = LocalIsDarkTheme.current
-    val (highlightOffsetState, pointerModifier) = rememberLiquidHighlightOffset(
-        defaultOffsetFraction = Offset(0.5f, 0.15f)
-    )
+    val visualMode = LocalVisualThemeMode.current
+    val isStatic = visualMode == VisualThemeMode.STATIC_COLORS
 
-    val sheetBg = if (isDark) Color(0xE6121422) else Color(0xF2FFFFFF)
-    val sheetBorder = if (isDark) DarkGlassBorderStrong else LightGlassBorderStrong
+    val (highlightOffsetState, pointerModifier) = if (!isStatic) {
+        rememberLiquidHighlightOffset(defaultOffsetFraction = Offset(0.5f, 0.15f))
+    } else {
+        Pair(remember { mutableStateOf(Offset.Zero) }, Modifier)
+    }
+
+    val sheetBg = if (isStatic) {
+        if (isDark) Color(0xFF202024) else Color(0xFFFFFFFF)
+    } else {
+        if (isDark) Color(0xE6121422) else Color(0xF2FFFFFF)
+    }
+    val sheetBorder = if (isStatic) {
+        if (isDark) Color(0xFF383840) else Color(0xFFE2E8F0)
+    } else {
+        if (isDark) DarkGlassBorderStrong else LightGlassBorderStrong
+    }
 
     Column(
         modifier = modifier
@@ -636,20 +796,22 @@ fun GlassSheetContainer(
             .background(sheetBg)
             .then(pointerModifier)
             .drawBehind {
-                val center = highlightOffsetState.value
-                val radius = size.width * 0.7f
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            if (isDark) Color(0x28A69FFF) else Color(0x357E74F1),
-                            Color.Transparent
+                if (!isStatic) {
+                    val center = highlightOffsetState.value
+                    val radius = size.width * 0.7f
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                if (isDark) Color(0x28A69FFF) else Color(0x357E74F1),
+                                Color.Transparent
+                            ),
+                            center = center,
+                            radius = radius
                         ),
-                        center = center,
-                        radius = radius
-                    ),
-                    radius = radius,
-                    center = center
-                )
+                        radius = radius,
+                        center = center
+                    )
+                }
             }
             .border(
                 width = 1.dp,
@@ -747,22 +909,41 @@ fun GlassModalSheet(
 fun GlassTextField(
     value: String,
     onValueChange: (String) -> Unit,
-    label: String,
+    label: String = "",
+    placeholder: String = "",
     modifier: Modifier = Modifier,
     singleLine: Boolean = true,
     isPassword: Boolean = false,
     leadingIcon: (@Composable () -> Unit)? = null
 ) {
     val isDark = LocalIsDarkTheme.current
+    val visualMode = LocalVisualThemeMode.current
+    val isStatic = visualMode == VisualThemeMode.STATIC_COLORS
+
     val textColor = if (isDark) TextPrimary else Color(0xFF141728)
-    val containerColor = if (isDark) Color(0x1AFFFFFF) else Color(0xEBFFFFFF)
-    val unfocusedContainerColor = if (isDark) Color(0x0EFFFFFF) else Color(0xD0FFFFFF)
-    val borderColor = if (isDark) GlassBorder else Color(0x26000000)
+    val containerColor = if (isStatic) {
+        if (isDark) Color(0xFF27272A) else Color(0xFFF4F4F5)
+    } else {
+        if (isDark) Color(0x1AFFFFFF) else Color(0xEBFFFFFF)
+    }
+    val unfocusedContainerColor = if (isStatic) {
+        if (isDark) Color(0xFF202024) else Color(0xFFFFFFFF)
+    } else {
+        if (isDark) Color(0x0EFFFFFF) else Color(0xD0FFFFFF)
+    }
+    val borderColor = if (isStatic) {
+        if (isDark) Color(0xFF3F3F46) else Color(0xFFE2E8F0)
+    } else {
+        if (isDark) GlassBorder else Color(0x26000000)
+    }
 
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label, fontSize = 13.sp) },
+        label = if (label.isNotBlank()) { { Text(label, fontSize = 13.sp) } } else null,
+        placeholder = if (placeholder.isNotBlank()) {
+            { Text(placeholder, fontSize = 13.sp, color = if (isDark) TextSecondary else Color(0xFF8E95A5)) }
+        } else null,
         singleLine = singleLine,
         leadingIcon = leadingIcon,
         modifier = modifier.fillMaxWidth(),
@@ -782,6 +963,36 @@ fun GlassTextField(
             focusedLabelColor = LoopinIris,
             unfocusedLabelColor = if (isDark) TextSecondary else Color(0xFF5B6178)
         )
+    )
+}
+
+@Composable
+fun GlassTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String = "",
+    placeholder: String = "",
+    modifier: Modifier = Modifier,
+    singleLine: Boolean = true,
+    isPassword: Boolean = false,
+    leadingIcon: androidx.compose.ui.graphics.vector.ImageVector
+) {
+    GlassTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = label,
+        placeholder = placeholder,
+        modifier = modifier,
+        singleLine = singleLine,
+        isPassword = isPassword,
+        leadingIcon = {
+            Icon(
+                imageVector = leadingIcon,
+                contentDescription = null,
+                tint = if (LocalIsDarkTheme.current) TextSecondary else Color(0xFF64748B),
+                modifier = Modifier.size(20.dp)
+            )
+        }
     )
 }
 

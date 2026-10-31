@@ -11,15 +11,38 @@
         "bio": { "type": "string" },
         "avatarUrl": { "type": "string" },
         "squadId": { "type": "string" },
+        "isOnline": { "type": "boolean" },
+        "isPublicDirectory": { "type": "boolean" },
+        "isPrivate": { "type": "boolean" },
+        "followers": { "type": "array" },
+        "following": { "type": "array" },
+        "blockedUsers": { "type": "array" },
+        "onlineStatusText": { "type": "string" },
         "onboardingComplete": { "type": "boolean" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["userId", "username", "squadId", "createdAt"]
+      "required": ["userId", "username", "createdAt"]
+    },
+    "Community": {
+      "title": "Community",
+      "description": "Open public communities for shared interests",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "description": { "type": "string" },
+        "iconEmoji": { "type": "string" },
+        "bannerColorHex": { "type": "string" },
+        "memberCount": { "type": "number" },
+        "category": { "type": "string" }
+      },
+      "required": ["id", "name", "slug"]
     },
     "Post": {
       "title": "Post",
-      "description": "Feed post with photo and caption",
+      "description": "Feed post with photo or text-only caption",
       "type": "object",
       "properties": {
         "userId": { "type": "string" },
@@ -28,11 +51,13 @@
         "caption": { "type": "string" },
         "imageUrl": { "type": "string" },
         "squadId": { "type": "string" },
+        "communityId": { "type": "string" },
+        "communityName": { "type": "string" },
         "likesCount": { "type": "number" },
         "commentsCount": { "type": "number" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["userId", "caption", "squadId", "createdAt"]
+      "required": ["userId", "caption", "createdAt"]
     },
     "PostComment": {
       "title": "PostComment",
@@ -58,9 +83,11 @@
         "mediaUrl": { "type": "string" },
         "caption": { "type": "string" },
         "squadId": { "type": "string" },
+        "songTitle": { "type": "string" },
+        "songArtist": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["userId", "username", "mediaUrl", "squadId", "createdAt"]
+      "required": ["userId", "username", "mediaUrl", "createdAt"]
     },
     "Room": {
       "title": "Room",
@@ -71,20 +98,31 @@
         "squadId": { "type": "string" },
         "name": { "type": "string" },
         "isSquadRoom": { "type": "boolean" },
+        "isGroup": { "type": "boolean" },
+        "groupAdminId": { "type": "string" },
+        "groupAvatarUrl": { "type": "string" },
         "memberIds": { "type": "array" },
+        "memberUsernames": { "type": "array" },
         "lastMessage": { "type": "string" },
         "lastMessageSender": { "type": "string" },
         "lastMessageTime": { "type": "string", "format": "date-time" },
         "createdAt": { "type": "string", "format": "date-time" },
         "typingUserIds": { "type": "array" },
         "typingUsernames": { "type": "array" },
-        "unreadByUserIds": { "type": "array" }
+        "unreadByUserIds": { "type": "array" },
+        "themeId": { "type": "string" },
+        "disappearingDurationSec": { "type": "number" },
+        "nicknames": { "type": "object" },
+        "mutedByUserIds": { "type": "array" },
+        "blockedUserIds": { "type": "array" },
+        "showMembers": { "type": "boolean" },
+        "memberAvatars": { "type": "object" }
       },
-      "required": ["roomId", "squadId", "isSquadRoom", "createdAt"]
+      "required": ["roomId", "createdAt"]
     },
     "RoomMessage": {
       "title": "RoomMessage",
-      "description": "Message inside a direct message room or squad room",
+      "description": "Message inside a direct message room or group room",
       "type": "object",
       "properties": {
         "senderId": { "type": "string" },
@@ -93,14 +131,32 @@
         "text": { "type": "string" },
         "type": { "type": "string" },
         "mediaUrl": { "type": "string" },
+        "effect": { "type": "string" },
+        "songTitle": { "type": "string" },
+        "songArtist": { "type": "string" },
+        "songCoverUrl": { "type": "string" },
+        "spotifyTrackUri": { "type": "string" },
+        "audioDurationSec": { "type": "number" },
+        "replyToMessageId": { "type": "string" },
+        "replyToText": { "type": "string" },
+        "replyToSenderName": { "type": "string" },
+        "isUnsent": { "type": "boolean" },
+        "isForwarded": { "type": "boolean" },
+        "status": { "type": "string" },
+        "seenAt": { "type": "string", "format": "date-time" },
+        "seenByUserIds": { "type": "array" },
+        "deletedForUserIds": { "type": "array" },
         "reactions": { "type": "array" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "isViewOnce": { "type": "boolean" },
+        "isViewed": { "type": "boolean" }
       },
       "required": ["senderId", "senderName", "text", "type", "createdAt"]
     },
     "MusicNote": {
       "title": "MusicNote",
-      "description": "Instagram music note with song and mood message",
+      "description": "Instagram 24h note with mood thought, color theme, and optional Spotify song",
       "type": "object",
       "properties": {
         "userId": { "type": "string" },
@@ -110,9 +166,14 @@
         "songTitle": { "type": "string" },
         "artist": { "type": "string" },
         "noteText": { "type": "string" },
+        "albumCoverUrl": { "type": "string" },
+        "spotifyUri": { "type": "string" },
+        "previewAudioUrl": { "type": "string" },
+        "colorTheme": { "type": "string" },
+        "expiresAt": { "type": "string", "format": "date-time" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["userId", "username", "squadId", "songTitle", "artist", "noteText", "createdAt"]
+      "required": ["userId", "noteText", "createdAt"]
     },
     "Instant": {
       "title": "Instant",
@@ -127,13 +188,17 @@
         "caption": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["userId", "username", "squadId", "imageUrl", "createdAt"]
+      "required": ["userId", "imageUrl", "createdAt"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "UserProfile",
-      "description": "User profiles with username, avatar and squadId"
+      "description": "User profiles with username, avatar, and social status"
+    },
+    "/communities/{communityId}": {
+      "schema": "Community",
+      "description": "Open interest-based communities"
     },
     "/posts/{postId}": {
       "schema": "Post",
@@ -157,7 +222,7 @@
     },
     "/notes/{noteId}": {
       "schema": "MusicNote",
-      "description": "User music notes status"
+      "description": "User notes status with color theme and optional music"
     },
     "/instants/{instantId}": {
       "schema": "Instant",

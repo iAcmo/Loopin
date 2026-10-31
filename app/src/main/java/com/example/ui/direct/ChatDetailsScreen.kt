@@ -135,6 +135,9 @@ fun ChatDetailsScreen(
 
     var showReportDialog by remember { mutableStateOf(false) }
     var reportSubmitted by remember { mutableStateOf(false) }
+    var groupNameDisplay by remember(room.name) { mutableStateOf(room.name.ifBlank { "Group Squad" }) }
+    var showEditGroupNameDialog by remember { mutableStateOf(false) }
+    var showMembersInChat by remember { mutableStateOf(room.showMembers) }
 
     var mediaTab by remember { mutableIntStateOf(0) } // 0: Photos, 1: Music, 2: Voice
 
@@ -232,12 +235,31 @@ fun ChatDetailsScreen(
 
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            Text(
-                                text = if (room.isGroup) room.name else effectiveDisplayName,
-                                fontSize = 19.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = if (room.isGroup) groupNameDisplay else effectiveDisplayName,
+                                    fontSize = 19.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimary
+                                )
+                                if (room.isGroup) {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    IconButton(
+                                        onClick = { showEditGroupNameDialog = true },
+                                        modifier = Modifier.size(24.dp).testTag("edit_group_name_button")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "Edit Group Name",
+                                            tint = LoopinIrisGlow,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
 
                             if (!room.isGroup) {
                                 Text(
